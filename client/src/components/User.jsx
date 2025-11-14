@@ -35,19 +35,22 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
     images.forEach((file) => formData.append("images", file));
 
     try {
-      const res = await fetch("http://localhost:3000/api/generate", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+      const res = await fetch(
+        "https://poe2-ai-helper.onrender.com/api/generate",
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
 
       const data = await res.json();
-      console.log("📥 Full response data:", data);
-      console.log("📥 Response text:", data.response);
+      console.log("Full response data:", data);
+      console.log("Response text:", data.response);
 
       if (!data.response) {
         throw new Error("No response content received");

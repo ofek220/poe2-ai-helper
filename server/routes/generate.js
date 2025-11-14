@@ -85,9 +85,9 @@ router.post("/", upload.array("images", 5), async (req, res) => {
     messages.push({ role: "user", content: contentParts });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: messages,
-      max_tokens: 1000,
+      max_completion_tokens: 1000,
     });
 
     const content = response.choices[0].message.content;

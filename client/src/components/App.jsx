@@ -12,14 +12,16 @@ function App() {
 
   //log in
   useEffect(() => {
-    fetch("http://localhost:3000/api/check", { credentials: "include" })
+    fetch("https://poe2-ai-helper.onrender.com/api/check", {
+      credentials: "include",
+    })
       .then((res) => res.json())
       .then((data) => setLoggedIn(data.loggedIn));
   }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    const res = await fetch("http://localhost:3000/login", {
+    const res = await fetch("https://poe2-ai-helper.onrender.com/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -94,6 +96,7 @@ function App() {
             type="password"
             placeholder="Password"
             value={password}
+            autoComplete="new-password"
             onChange={(e) => setPassword(e.target.value)}
           />
 
