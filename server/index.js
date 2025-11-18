@@ -4,6 +4,7 @@ import session from "express-session";
 import bcrypt from "bcrypt";
 
 const app = express();
+// origin: "http://localhost:5173",
 
 app.use(
   cors({

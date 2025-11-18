@@ -1,10 +1,9 @@
-import express from "express";
+import express, { text } from "express";
 import dotenv from "dotenv";
-import aiPrompt from "../helpers/aiPrompt.js";
 import OpenAI from "openai";
 import multer from "multer";
-import fs from "fs";
-import sharp from "sharp";
+import aiPrompt from "../helpers/aiPrompt.js";
+import imgPrompt from "../helpers/imgPrompt.js";
 
 dotenv.config();
 const router = express.Router();
@@ -12,42 +11,19 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
 const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
-const upload = multer({ dest: "uploads/" });
+// const upload = multer({ dest: "uploads/" });
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/", upload.array("images", 5), async (req, res) => {
   const { prompt } = req.body;
   const userPrompt = prompt;
   const systemPrompt = aiPrompt;
-
+  const imgAnalysis = imgPrompt;
   try {
     if (!req.session) req.session = {};
     if (!req.session.messages) req.session.messages = [];
 
     const messages = [{ role: "system", content: systemPrompt }];
-
-    // Process images, resize them, and convert to base64
-    let imageObjects = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        try {
-          const resizedBuffer = await sharp(file.path)
-            .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
-            .toBuffer();
-
-          const base64Image = resizedBuffer.toString("base64");
-          fs.unlinkSync(file.path);
-
-          imageObjects.push({
-            type: "image_url",
-            image_url: {
-              url: `data:${file.mimetype};base64,${base64Image}`,
-            },
-          });
-        } catch (imgError) {
-          fs.unlinkSync(file.path);
-        }
-      }
-    }
 
     // Get Google search results
     const query = encodeURIComponent(userPrompt);
@@ -65,45 +41,100 @@ router.post("/", upload.array("images", 5), async (req, res) => {
     console.log("🟢 Encoded Query:", query);
     console.log("🔵 Google Search URL:", googleSearchUrl);
     console.log("🟠 Raw Fetch Response:", searchResponse);
-    console.log(
-      "🟣 Parsed JSON Response:",
-      JSON.stringify(searchData, null, 2)
-    );
+    // console.log(
+    //   "🟣 Parsed JSON Response:",
+    //   JSON.stringify(searchData, null, 2)
+    // );
     console.log("✅ Final Combined Snippets:\n", snippets);
+    console.log("🟣Uploaded files:", req.files);
+
     // end testing logs
 
-    const contentParts = [
-      {
-        type: "text",
-        text:
-          `Analyze the image(s) and answer: "${userPrompt}"\n\n` +
-          `Context from web:\n${snippets}`,
-      },
-      ...imageObjects,
-    ];
+    let imageAnalysis = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const base64Image = file.buffer.toString("base64");
+        const mimetype = file.mimetype;
+        const imageUrl = `data:${mimetype};base64,${base64Image}`;
 
-    messages.push({ role: "user", content: contentParts });
+        const imageAnalysisResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: imgAnalysis,
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Analyze the attached image and provide a summary based on the current build planner system instructions.",
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: imageUrl },
+                },
+              ],
+            },
+          ],
+          max_completion_tokens: 500,
+        });
+        imageAnalysis.push(imageAnalysisResponse.choices[0].message.content);
+      }
+    }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
-      messages: messages,
-      max_completion_tokens: 1000,
-    });
+    // After the image analysis loop, add this check:
+    console.log("📸 Image analysis results:", imageAnalysis);
 
-    const content = response.choices[0].message.content;
+    const finalPrompt = `
+      Image analysis results:${imageAnalysis.join("\n\n")}
+      User prompt: ${userPrompt}
+      Context from web:${snippets}`;
 
-    // Token usage info
-    const usage = response.usage;
-    console.log("🟢 Tokens used:");
-    console.log("  Prompt:", usage.prompt_tokens);
-    console.log("  Completion:", usage.completion_tokens);
-    console.log("  Total:", usage.total_tokens);
+    console.log("📝 Final prompt:", finalPrompt);
 
-    req.session.messages.push({ role: "assistant", content });
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Combine the following image analysis and text context into a comprehensive answer.",
+          },
+          { role: "user", content: finalPrompt },
+        ],
+        max_completion_tokens: 1000,
+      });
 
-    res.json({ response: content });
-    console.log("✅ Response sent successfully");
-    console.log(content);
+      console.log("✅ OpenAI response received:", response);
+      const content = response.choices[0].message.content;
+      console.log("📄 Content extracted:", content);
+
+      if (!content) {
+        throw new Error("OpenAI returned empty content");
+      }
+
+      // Token usage info
+      const usage = response.usage;
+      console.log("🟢 Tokens used:");
+      console.log("  Prompt:", usage.prompt_tokens);
+      console.log("  Completion:", usage.completion_tokens);
+      console.log("  Total:", usage.total_tokens);
+
+      req.session.messages.push({ role: "assistant", content });
+
+      console.log("✅ Response sent successfully");
+      return res.json({ response: content });
+    } catch (openaiError) {
+      console.error("❌ OpenAI API call failed:", openaiError);
+      console.error(
+        "❌ Error details:",
+        openaiError.response?.data || openaiError.message
+      );
+      throw openaiError;
+    }
   } catch (error) {
     console.error("❌ Full error:", error);
     console.error("❌ Error message:", error.message);
