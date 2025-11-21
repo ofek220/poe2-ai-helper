@@ -16,6 +16,7 @@ const ImageUpload = ({ images, setImages, previews, setPreviews }) => {
     setImages([]);
     setPreviews([]);
   };
+
   return (
     <div className="card p-2 text-center" style={{ maxWidth: "fit-content" }}>
       <input

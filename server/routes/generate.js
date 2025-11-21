@@ -58,7 +58,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
         const imageUrl = `data:${mimetype};base64,${base64Image}`;
 
         const imageAnalysisResponse = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: "gpt-4.1-mini-2025-04-14",
           messages: [
             {
               role: "system",
@@ -80,11 +80,18 @@ router.post("/", upload.array("images", 5), async (req, res) => {
           ],
           max_completion_tokens: 500,
         });
+
+        // token usage
+        const imageUsage = imageAnalysisResponse.usage;
+        console.log(`🖼️ Image Token Usage (${file.originalname}):`);
+        console.log(`Prompt: ${imageUsage.prompt_tokens}`);
+        console.log(`Completion: ${imageUsage.completion_tokens}`);
+        console.log(`Total: ${imageUsage.total_tokens}`);
+        //
         imageAnalysis.push(imageAnalysisResponse.choices[0].message.content);
       }
     }
 
-    // After the image analysis loop, add this check:
     console.log("📸 Image analysis results:", imageAnalysis);
 
     const finalPrompt = `
@@ -96,7 +103,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini-2025-08-07",
         messages: [
           {
             role: "system",
@@ -105,7 +112,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
           },
           { role: "user", content: finalPrompt },
         ],
-        max_completion_tokens: 1000,
+        max_completion_tokens: 2000,
       });
 
       console.log("✅ OpenAI response received:", response);
@@ -113,15 +120,11 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       console.log("📄 Content extracted:", content);
 
       if (!content) {
-        throw new Error("OpenAI returned empty content");
+        console.error("❌ Returned choice object:", response.choices[0]);
+        throw new Error(
+          `OpenAI returned empty content for model: ${response.model}`
+        );
       }
-
-      // Token usage info
-      const usage = response.usage;
-      console.log("🟢 Tokens used:");
-      console.log("  Prompt:", usage.prompt_tokens);
-      console.log("  Completion:", usage.completion_tokens);
-      console.log("  Total:", usage.total_tokens);
 
       req.session.messages.push({ role: "assistant", content });
 
@@ -135,6 +138,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       );
       throw openaiError;
     }
+    console.log("Current messages:", messages);
   } catch (error) {
     console.error("❌ Full error:", error);
     console.error("❌ Error message:", error.message);

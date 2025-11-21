@@ -4,7 +4,7 @@ import session from "express-session";
 import bcrypt from "bcrypt";
 
 const app = express();
-// origin: "http://localhost:5173",
+// origin: "http://localhost:5173", https://ofek220.github.io
 
 app.use(
   cors({

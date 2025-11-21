@@ -34,6 +34,8 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
     formData.append("prompt", prompt);
     images.forEach((file) => formData.append("images", file));
 
+    // https://poe2-ai-helper.onrender.com/api/generate
+    // http://localhost:3000/api/generate
     try {
       const res = await fetch(
         "https://poe2-ai-helper.onrender.com/api/generate",
@@ -62,10 +64,21 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
       setImages([]);
       setPreviews([]);
     } catch (err) {
-      console.error("❌ Frontend error:", err);
+      console.error("❌ Full Error:", err);
+      let userVisibleMessage;
+
+      if (
+        err.message.includes("Failed to fetch") ||
+        err.message.includes("CORS")
+      ) {
+        userVisibleMessage =
+          "❌ Network Error: Could not connect to the server.";
+      } else {
+        userVisibleMessage = `❌ Request Failed: ${err.message}`;
+      }
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: "❌ Server error" },
+        { role: "assistant", text: userVisibleMessage },
       ]);
     } finally {
       setLoading(false);
@@ -134,11 +147,11 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
             width="16"
             height="16"
             fill="currentColor"
-            class="bi bi-plus-lg"
+            className="bi bi-plus-lg"
             viewBox="0 0 16 16"
           >
             <path
-              fill-rule="evenodd"
+              fillRule="evenodd"
               d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"
             />
           </svg>
@@ -162,11 +175,11 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
             width="16"
             height="16"
             fill="currentColor"
-            class="bi bi-arrow-up"
+            className="bi bi-arrow-up"
             viewBox="0 0 16 16"
           >
             <path
-              fill-rule="evenodd"
+              fillRule="evenodd"
               d="M8 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L7.5 2.707V14.5a.5.5 0 0 0 .5.5"
             />
           </svg>

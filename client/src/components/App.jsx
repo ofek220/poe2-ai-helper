@@ -10,7 +10,8 @@ function App() {
   const [savedChats, setSavedChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
 
-  //log in
+  // https://poe2-ai-helper.onrender.com/api/check -- https://poe2-ai-helper.onrender.com/login
+  //log in http://localhost:3000/api/check  -- http://localhost:3000/login
   useEffect(() => {
     fetch("https://poe2-ai-helper.onrender.com/api/check", {
       credentials: "include",
@@ -30,7 +31,6 @@ function App() {
     if (res.ok) setLoggedIn(true);
     else alert("Invalid password");
   };
-  //
 
   useEffect(() => {
     const raw = localStorage.getItem(LOCAL_KEY);
@@ -48,23 +48,26 @@ function App() {
     if (!messages || messages.length === 0) return;
 
     if (activeChat) {
+      const updatedChat = { ...activeChat, messages };
       const updatedChats = savedChats.map((chat) =>
-        chat.id === activeChat.id ? { ...chat, messages } : chat
+        chat.id === activeChat.id ? updatedChat : chat
       );
       setSavedChats(updatedChats);
       localStorage.setItem(LOCAL_KEY, JSON.stringify(updatedChats));
-      setActiveChat((prev) => ({ ...prev, messages }));
+      setActiveChat(updatedChat);
     } else {
-      const newChat = {
-        id: Date.now(),
-        name: `Chat ${savedChats.length + 1}`,
-        messages,
-        timestamp: new Date().toISOString(),
-      };
-      const updated = [...savedChats, newChat];
-      setSavedChats(updated);
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(updated));
-      setActiveChat(newChat);
+      if (messages.length >= 2) {
+        const newChat = {
+          id: Date.now(),
+          name: `Chat ${savedChats.length + 1}`,
+          messages,
+          timestamp: new Date().toISOString(),
+        };
+        const updated = [...savedChats, newChat];
+        setSavedChats(updated);
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(updated));
+        setActiveChat(newChat);
+      }
     }
   };
   const handleLoadChat = (chatId) => {
