@@ -11,7 +11,6 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
 const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
-// const upload = multer({ dest: "uploads/" });
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/", upload.array("images", 5), async (req, res) => {
@@ -50,45 +49,54 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
     // end testing logs
 
+    const imageUrls = req.body.imageUrls
+      ? Array.isArray(req.body.imageUrls)
+        ? req.body.imageUrls
+        : [req.body.imageUrls]
+      : [];
+
     let imageAnalysis = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        const base64Image = file.buffer.toString("base64");
-        const mimetype = file.mimetype;
-        const imageUrl = `data:${mimetype};base64,${base64Image}`;
+    if (imageUrls.length > 0) {
+      for (const url of imageUrls) {
+        try {
+          const imageResponse = await fetch(url);
+          const arrayBuffer = await imageResponse.arrayBuffer();
+          const imageBuffer = Buffer.from(arrayBuffer);
+          const base64Image = imageBuffer.toString("base64");
+          const mimetype = imageResponse.headers.get("content-type");
+          const imageUrl = `data:${mimetype};base64,${base64Image}`;
 
-        const imageAnalysisResponse = await openai.chat.completions.create({
-          model: "gpt-4.1-mini-2025-04-14",
-          messages: [
-            {
-              role: "system",
-              content: imgAnalysis,
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Analyze the attached image and provide a summary based on the current build planner system instructions.",
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: imageUrl },
-                },
-              ],
-            },
-          ],
-          max_completion_tokens: 500,
-        });
+          const imageAnalysisResponse = await openai.chat.completions.create({
+            model: "gpt-4.1-mini-2025-04-14",
+            messages: [
+              {
+                role: "system",
+                content: imgAnalysis,
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Analyze the attached image and provide a summary based on the current build planner system instructions.",
+                  },
+                  { type: "image_url", image_url: { url: imageUrl } },
+                ],
+              },
+            ],
+            max_completion_tokens: 500,
+          });
 
-        // token usage
-        const imageUsage = imageAnalysisResponse.usage;
-        console.log(`🖼️ Image Token Usage (${file.originalname}):`);
-        console.log(`Prompt: ${imageUsage.prompt_tokens}`);
-        console.log(`Completion: ${imageUsage.completion_tokens}`);
-        console.log(`Total: ${imageUsage.total_tokens}`);
-        //
-        imageAnalysis.push(imageAnalysisResponse.choices[0].message.content);
+          // token usage
+          const imageUsage = imageAnalysisResponse.usage;
+          console.log(`Prompt: ${imageUsage.prompt_tokens}`);
+          console.log(`Completion: ${imageUsage.completion_tokens}`);
+          console.log(`Total: ${imageUsage.total_tokens}`);
+          //
+          imageAnalysis.push(imageAnalysisResponse.choices[0].message.content);
+        } catch (imgError) {
+          console.error("❌ Error analyzing image:", imgError.message);
+        }
       }
     }
 
@@ -138,7 +146,6 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       );
       throw openaiError;
     }
-    console.log("Current messages:", messages);
   } catch (error) {
     console.error("❌ Full error:", error);
     console.error("❌ Error message:", error.message);

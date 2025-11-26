@@ -2,13 +2,14 @@ import express from "express";
 import cors from "cors";
 import session from "express-session";
 import bcrypt from "bcrypt";
+import fs from "fs";
 
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
 
 app.use(
   cors({
-    origin: "https://ofek220.github.io",
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
@@ -56,7 +57,17 @@ app.post("/login", async (req, res) => {
 });
 
 import generateRoute from "./routes/generate.js";
+import uploadRouter from "./routes/upload.js";
+
+const uploadDir = "uploads";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 app.use("/api/generate", generateRoute);
+
+app.use("/api/upload", uploadRouter);
+app.use("/uploads", express.static("uploads"));
 
 app.listen(PORT, () => {
   console.log(`🚀Server running on port ${PORT}`);

@@ -12,9 +12,11 @@ const ImageUpload = ({ images, setImages, previews, setPreviews }) => {
     }
   };
 
-  const clearImages = () => {
-    setImages([]);
-    setPreviews([]);
+  const clearImages = (i) => {
+    const newImageArr = images.filter((img, index) => index !== i);
+    URL.revokeObjectURL(previews[i]);
+    const newPreviewArr = previews.filter((img, index) => index !== i);
+    return setPreviews(newPreviewArr), setImages(newImageArr);
   };
 
   return (
@@ -51,21 +53,18 @@ const ImageUpload = ({ images, setImages, previews, setPreviews }) => {
       {previews.length > 0 && (
         <div className="prevImgPos">
           {previews.map((src, i) => (
-            <img
-              className="imgPreview"
-              key={i}
-              src={src}
-              alt={`Preview ${i}`}
-            />
+            <div key={i}>
+              <img className="imgPreview" src={src} alt={`Preview ${i}`} />
+              <button
+                className="clrImg"
+                type="button"
+                onClick={() => clearImages(i)}
+                title="Clear images"
+              >
+                ×
+              </button>
+            </div>
           ))}
-          <button
-            className="clrImg"
-            type="button"
-            onClick={clearImages}
-            title="Clear images"
-          >
-            ×
-          </button>
         </div>
       )}
     </div>
