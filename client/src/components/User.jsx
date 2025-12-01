@@ -35,11 +35,14 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
         const uploadFormData = new FormData();
         images.forEach((file) => uploadFormData.append("images", file));
 
-        const uploadRes = await fetch("http://localhost:3000/api/upload", {
-          method: "POST",
-          credentials: "include",
-          body: uploadFormData,
-        });
+        const uploadRes = await fetch(
+          "https://poe2-ai-helper.onrender.com/api/upload",
+          {
+            method: "POST",
+            credentials: "include",
+            body: uploadFormData,
+          }
+        );
 
         if (!uploadRes.ok) {
           throw new Error("failed to upload images");
@@ -64,11 +67,14 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
         formData.append("imageUrls", url);
       });
 
-      const res = await fetch("http://localhost:3000/api/generate", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+      const res = await fetch(
+        "https://poe2-ai-helper.onrender.com/api/generate",
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -110,6 +116,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
   };
 
   //https://poe2-ai-helper.onrender.com/api/upload
+  // http://localhost:3000/api/upload
   const handleNewChat = async () => {
     const allImageUrls = messages
       .filter((msg) => msg.images && msg.images.length > 0)
@@ -117,7 +124,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
 
     if (allImageUrls.length > 0) {
       try {
-        await fetch("http://localhost:3000/api/upload", {
+        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
           method: "DELETE",
           credentials: "include",
           headers: {
@@ -125,7 +132,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
           },
           body: JSON.stringify({ imageUrls: allImageUrls }),
         });
-        console.log(" Deleted images from server");
+        console.log("Deleted images from server");
       } catch (error) {
         console.error("Failed to delete images:", error);
       }

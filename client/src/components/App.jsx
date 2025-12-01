@@ -15,7 +15,7 @@ function App() {
   // https://poe2-ai-helper.onrender.com/api/check -- https://poe2-ai-helper.onrender.com/login
   //log in http://localhost:3000/api/check  -- http://localhost:3000/login
   useEffect(() => {
-    fetch("http://localhost:3000/api/check", {
+    fetch("https://poe2-ai-helper.onrender.com/api/check", {
       credentials: "include",
     })
       .then((res) => res.json())
@@ -24,7 +24,7 @@ function App() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    const res = await fetch("http://localhost:3000/login", {
+    const res = await fetch("https://poe2-ai-helper.onrender.com/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -79,7 +79,8 @@ function App() {
       setActiveChat(chat);
     }
   };
-
+  // https://poe2-ai-helper.onrender.com/api/upload
+  // http://localhost:3000/api/upload
   const handleClearAll = async () => {
     if (!confirm("Clear all saved chats?")) return;
 
@@ -90,7 +91,7 @@ function App() {
 
     if (allImageUrls.length > 0) {
       try {
-        await fetch("http://localhost:3000/api/upload", {
+        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
           method: "DELETE",
           credentials: "include",
           headers: {
@@ -133,7 +134,7 @@ function App() {
 
     if (imageUrls.length > 0) {
       try {
-        await fetch("http://localhost:3000/api/upload", {
+        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
           method: "DELETE",
           credentials: "include",
           headers: {

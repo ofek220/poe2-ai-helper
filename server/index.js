@@ -9,7 +9,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "https://ofek220.github.io",
     credentials: true,
   })
 );
@@ -25,8 +25,8 @@ app.use(
     cookie: {
       maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      sameSite: "none",
+      secure: true,
     },
   })
 );
@@ -67,7 +67,14 @@ if (!fs.existsSync(uploadDir)) {
 app.use("/api/generate", generateRoute);
 
 app.use("/api/upload", uploadRouter);
-app.use("/uploads", express.static("uploads"));
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    next();
+  },
+  express.static("uploads")
+);
 
 app.listen(PORT, () => {
   console.log(`🚀Server running on port ${PORT}`);

@@ -111,7 +111,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5-mini-2025-08-07",
+        model: "gpt-4.1-mini-2025-04-14",
         messages: [
           {
             role: "system",
