@@ -228,6 +228,11 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
             </svg>
           </button>
           <TextareaAutosize
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSubmit(e);
+              }
+            }}
             maxRows={6}
             className="form-control"
             placeholder="What is on your mind?"

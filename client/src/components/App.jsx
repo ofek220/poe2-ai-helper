@@ -228,7 +228,7 @@ function App() {
             </ul>
             {/* Delete specific chat section */}
             {savedChats.length > 0 && (
-              <div className="d-flex align-items-center me-2">
+              <div className="d-flex align-items-center me-2 chatSelect">
                 <select
                   className="form-select form-select-sm me-2"
                   value={chatToDelete}

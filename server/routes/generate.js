@@ -104,27 +104,32 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
     const finalPrompt = `
       Image analysis results:${imageAnalysis.join("\n\n")}
-      User prompt: ${userPrompt}
-      Context from web:${snippets}`;
+      User prompt: ${userPrompt}`;
 
     console.log("📝 Final prompt:", finalPrompt);
+    //
+    const recentMessages = req.session.messages.slice(-20);
+    const allMessages = [
+      { role: "system", content: systemPrompt },
+      ...recentMessages,
+      {
+        role: "user",
+        content: `Context from web:\n${snippets}\n\nImage analysis:\n${imageAnalysis.join(
+          "\n\n"
+        )}\n\nUser prompt:\n${userPrompt}`,
+      },
+    ];
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4.1-mini-2025-04-14",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Combine the following image analysis and text context into a comprehensive answer.",
-          },
-          { role: "user", content: finalPrompt },
-        ],
+        model: "gpt-4.1-2025-04-14",
+        messages: allMessages,
         max_completion_tokens: 2000,
       });
 
       console.log("✅ OpenAI response received:", response);
       const content = response.choices[0].message.content;
+      req.session.messages.push({ role: "user", content: finalPrompt });
       console.log("📄 Content extracted:", content);
 
       if (!content) {

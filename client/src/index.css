@@ -275,7 +275,7 @@ hr {
 
 .prevImgPos {
   position: absolute;
-  bottom: 60px;
+  bottom: 120%;
   transform: translateX(-50%);
   background-color: #1a1a33b6;
   border-radius: 10px;
@@ -328,5 +328,9 @@ hr {
   .submitBtn {
     padding: 1px 5px;
     border: none;
+  }
+
+  .chatSelect {
+    margin-bottom: 5px;
   }
 }
