@@ -122,21 +122,6 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
       .filter((msg) => msg.images && msg.images.length > 0)
       .flatMap((msg) => msg.images);
 
-    if (allImageUrls.length > 0) {
-      try {
-        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
-          method: "DELETE",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ imageUrls: allImageUrls }),
-        });
-        console.log("Deleted images from server");
-      } catch (error) {
-        console.error("Failed to delete images:", error);
-      }
-    }
     setMessages([]);
     setPrompt("");
     setImages([]);

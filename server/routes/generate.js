@@ -22,8 +22,6 @@ router.post("/", upload.array("images", 5), async (req, res) => {
     if (!req.session) req.session = {};
     if (!req.session.messages) req.session.messages = [];
 
-    const messages = [{ role: "system", content: systemPrompt }];
-
     // Get Google search results
     const query = encodeURIComponent(userPrompt);
     const googleSearchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_CSE_CX}&q=${query}&num=3`;
@@ -102,21 +100,22 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
     console.log("📸 Image analysis results:", imageAnalysis);
 
-    const finalPrompt = `
-      Image analysis results:${imageAnalysis.join("\n\n")}
-      User prompt: ${userPrompt}`;
+    let finalPrompt = `User prompt: ${userPrompt}`;
+    if (imageAnalysis.length > 0) {
+      finalPrompt = `User prompt: ${userPrompt}\n\n[Image Analysis results:${imageAnalysis.join(
+        "\n\n"
+      )}]`;
+    }
 
     console.log("📝 Final prompt:", finalPrompt);
-    //
-    const recentMessages = req.session.messages.slice(-20);
+
     const allMessages = [
       { role: "system", content: systemPrompt },
-      ...recentMessages,
+      ...req.session.messages,
       {
         role: "user",
-        content: `Context from web:\n${snippets}\n\nImage analysis:\n${imageAnalysis.join(
-          "\n\n"
-        )}\n\nUser prompt:\n${userPrompt}`,
+        content: `Context from web:\n${snippets}
+        \n\nUser message:\n${finalPrompt}`,
       },
     ];
 
@@ -129,8 +128,6 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
       console.log("✅ OpenAI response received:", response);
       const content = response.choices[0].message.content;
-      req.session.messages.push({ role: "user", content: finalPrompt });
-      console.log("📄 Content extracted:", content);
 
       if (!content) {
         console.error("❌ Returned choice object:", response.choices[0]);
@@ -138,8 +135,11 @@ router.post("/", upload.array("images", 5), async (req, res) => {
           `OpenAI returned empty content for model: ${response.model}`
         );
       }
-
-      req.session.messages.push({ role: "assistant", content });
+      req.session.messages.push(
+        { role: "user", content: finalPrompt },
+        { role: "assistant", content }
+      );
+      console.log("📄 Content extracted:", content);
 
       console.log("✅ Response sent successfully");
       return res.json({ response: content });

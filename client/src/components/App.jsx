@@ -164,19 +164,21 @@ function App() {
 
   if (!loggedIn) {
     return (
-      <div style={{ padding: "2rem", color: "white" }}>
+      <div className="login-container form-group">
         <h2>Please log in</h2>
 
         <form onSubmit={handleLogin}>
           <input
+            className="form-control"
             type="password"
             placeholder="Password"
             value={password}
             autoComplete="new-password"
             onChange={(e) => setPassword(e.target.value)}
           />
-
-          <button type="submit">Login</button>
+          <button type="submit" className="btn btn-outline-light">
+            Login
+          </button>
         </form>
       </div>
     );
