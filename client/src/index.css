@@ -316,6 +316,9 @@ hr {
 .login-container button {
   margin-top: 10px;
 }
+.loading {
+  animation: pulse 1.5s infinite;
+}
 
 @media (max-width: 768px) {
   .title {

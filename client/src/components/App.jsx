@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import User from "./User";
+import LoginForm from "./LoginForm";
 
 const LOCAL_KEY = "savedChats_v1";
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [password, setPassword] = useState("");
 
   const [removeTitle, setRemoveTitle] = useState(false);
   const [hideTitle, setHideTitle] = useState(false);
@@ -21,18 +21,6 @@ function App() {
       .then((res) => res.json())
       .then((data) => setLoggedIn(data.loggedIn));
   }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const res = await fetch("https://poe2-ai-helper.onrender.com/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ password }),
-    });
-    if (res.ok) setLoggedIn(true);
-    else alert("Invalid password");
-  };
 
   useEffect(() => {
     const raw = localStorage.getItem(LOCAL_KEY);
@@ -164,23 +152,12 @@ function App() {
 
   if (!loggedIn) {
     return (
-      <div className="login-container form-group">
-        <h2>Please log in</h2>
-
-        <form onSubmit={handleLogin}>
-          <input
-            className="form-control"
-            type="password"
-            placeholder="Password"
-            value={password}
-            autoComplete="new-password"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button type="submit" className="btn btn-outline-light">
-            Login
-          </button>
-        </form>
-      </div>
+      <LoginForm
+        onLoginSuccess={() => {
+          setLoggedIn(true);
+          setLoading(false);
+        }}
+      />
     );
   }
 
