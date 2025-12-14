@@ -1,4 +1,4 @@
-import express, { text } from "express";
+import express from "express";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import multer from "multer";
@@ -14,13 +14,22 @@ const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/", upload.array("images", 5), async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, history } = req.body;
   const userPrompt = prompt;
   const systemPrompt = aiPrompt;
   const imgAnalysis = imgPrompt;
   try {
-    if (!req.session) req.session = {};
-    if (!req.session.messages) req.session.messages = [];
+    let conversationHistory = [];
+    if (history) {
+      try {
+        conversationHistory = JSON.parse(history);
+      } catch (error) {
+        console.error("Failed to parse history:", error);
+        conversationHistory = [];
+      }
+    } else {
+      console.log("No history received in request");
+    }
 
     // Get Google search results
     const query = encodeURIComponent(userPrompt);
@@ -111,7 +120,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
     const allMessages = [
       { role: "system", content: systemPrompt },
-      ...req.session.messages,
+      ...conversationHistory,
       {
         role: "user",
         content: `Context from web:\n${snippets}
@@ -135,13 +144,10 @@ router.post("/", upload.array("images", 5), async (req, res) => {
           `OpenAI returned empty content for model: ${response.model}`
         );
       }
-      req.session.messages.push(
-        { role: "user", content: finalPrompt },
-        { role: "assistant", content }
-      );
-      console.log("📄 Content extracted:", content);
 
+      console.log("📄 Content extracted:", content);
       console.log("✅ Response sent successfully");
+
       return res.json({ response: content });
     } catch (openaiError) {
       console.error("❌ OpenAI API call failed:", openaiError);

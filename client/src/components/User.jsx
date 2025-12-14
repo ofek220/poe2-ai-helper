@@ -61,8 +61,16 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
       setPrompt("");
       setLoading(true);
 
+      const conversationHistory = messages.map((msg) => ({
+        role: msg.role,
+        content: msg.text,
+      }));
+
       const formData = new FormData();
       formData.append("prompt", prompt);
+
+      formData.append("history", JSON.stringify(conversationHistory));
+
       imagesUploaded.forEach((url) => {
         formData.append("imageUrls", url);
       });
@@ -183,7 +191,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
           </div>
         ))}
 
-        {/* wating for ai response */}
+        {/* waiting for ai response */}
         {loading && (
           <div className="text-secondary small mb-3">🧠 Thinking...</div>
         )}
