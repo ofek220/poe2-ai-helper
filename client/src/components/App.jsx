@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import User from "./User";
 import LoginForm from "./LoginForm";
+import WindowSize from "./WindowSize";
 
 const LOCAL_KEY = "savedChats_v1";
 
@@ -171,7 +172,10 @@ function App() {
 
   return (
     <div className="container main-div">
-      <nav className="navbar navbar-expand-sm navbar-light bg-light mb-2">
+      <nav
+        className={`navbar navbar-nav-scroll navbar-light bg-light mb-2 navbar-dark
+      ${savedChats.length > 10 ? "" : "navbar-expand-sm"}`}
+      >
         <div className="container-fluid">
           <a className="navbar-brand" href="#">
             ♥
@@ -197,7 +201,12 @@ function App() {
                     className={`nav-link ${
                       activeChat?.id === chat.id ? "active" : ""
                     }`}
-                    onClick={() => handleLoadChat(chat.id)}
+                    onClick={() => {
+                      handleLoadChat(chat.id);
+                      const navbarCollapse =
+                        document.querySelector(".navbar-collapse");
+                      new bootstrap.Collapse(navbarCollapse).hide();
+                    }}
                     style={{ cursor: "pointer" }}
                   >
                     {chat.name}
@@ -207,7 +216,7 @@ function App() {
             </ul>
             {/* Delete specific chat section */}
             {savedChats.length > 0 && (
-              <div className="d-flex align-items-center me-2 chatSelect">
+              <WindowSize savedChats={savedChats}>
                 <select
                   className="form-select form-select-sm me-2"
                   value={chatToDelete}
@@ -230,7 +239,7 @@ function App() {
                 >
                   Delete Chat
                 </button>
-              </div>
+              </WindowSize>
             )}
             <button className="btn btn-danger btn-sm" onClick={handleClearAll}>
               Clear All chats

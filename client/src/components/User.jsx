@@ -68,9 +68,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
 
       const formData = new FormData();
       formData.append("prompt", prompt);
-
       formData.append("history", JSON.stringify(conversationHistory));
-
       imagesUploaded.forEach((url) => {
         formData.append("imageUrls", url);
       });

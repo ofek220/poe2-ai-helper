@@ -312,12 +312,18 @@ hr {
   max-width: 300px;
   margin: 100px auto;
   text-align: center;
+  box-shadow: 0 0 10px rgba(118, 118, 118, 0.792);
 }
 .login-container button {
   margin-top: 10px;
 }
+
 .loading {
   animation: pulse 1.5s infinite;
+}
+
+.chatSelect {
+  margin-bottom: 5px;
 }
 
 @media (max-width: 768px) {
@@ -345,9 +351,5 @@ hr {
   .submitBtn {
     padding: 1px 5px;
     border: none;
-  }
-
-  .chatSelect {
-    margin-bottom: 5px;
   }
 }
