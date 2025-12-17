@@ -2,8 +2,15 @@ import React, { useState, useEffect } from "react";
 import User from "./User";
 import LoginForm from "./LoginForm";
 import WindowSize from "./WindowSize";
+import { v4 as uuidv4 } from "uuid";
 
 const LOCAL_KEY = "savedChats_v1";
+
+let sessionId = localStorage.getItem("sessionId");
+if (!sessionId) {
+  sessionId = uuidv4();
+  localStorage.setItem("sessionId", sessionId);
+}
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -23,19 +30,28 @@ function App() {
       .then((data) => setLoggedIn(data.loggedIn));
   }, []);
 
+  // load saved chats from server
   useEffect(() => {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (raw) {
-      try {
-        setSavedChats(JSON.parse(raw));
-      } catch (error) {
-        console.error("Error parsing saved chats:", error);
-        localStorage.removeItem(LOCAL_KEY);
-      }
-    }
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) return;
+
+    fetch(`https://poe2-ai-helper.onrender.com/messages/${sessionId}`, {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((chatThreads) => {
+        const formattedChats = chatThreads.map((chat, idx) => ({
+          id: chat.chat_id,
+          name: `Chat ${idx + 1}`,
+          messages: [],
+          lastActive: chat.last_active,
+        }));
+        setSavedChats(formattedChats);
+      })
+      .catch((err) => console.error("Failed to load chats:", err));
   }, []);
 
-  const handleAutoSave = (messages) => {
+  const handleAutoSave = (messages, chatId) => {
     if (!messages || messages.length === 0) return;
 
     if (activeChat) {
@@ -46,6 +62,18 @@ function App() {
       setSavedChats(updatedChats);
       localStorage.setItem(LOCAL_KEY, JSON.stringify(updatedChats));
       setActiveChat(updatedChat);
+
+      fetch("https://poe2-ai-helper.onrender.com/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          sessionId,
+          chatId,
+          role: "user",
+          messages,
+        }),
+      });
     } else {
       if (messages.length >= 2) {
         const newChat = {
@@ -62,12 +90,32 @@ function App() {
     }
   };
 
-  const handleLoadChat = (chatId) => {
-    const chat = savedChats.find((chat) => chat.id === chatId);
-    if (chat) {
-      setActiveChat(chat);
+  const handleLoadChat = async (chatId) => {
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) return;
+
+    try {
+      const res = await fetch(
+        `https://poe2-ai-helper.onrender.com/messages/${sessionId}/${chatId}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) throw new Error(`Failed to load chat ${chatId}`);
+
+      const messages = await res.json();
+      const loadedChat = {
+        id: chatId,
+        name: `Chat ${chatId}`,
+        messages,
+      };
+      setActiveChat(loadedChat);
+    } catch (error) {
+      console.error("Error loading chat:", error);
     }
   };
+
   // https://poe2-ai-helper.onrender.com/api/upload
   // http://localhost:3000/api/upload
   const handleClearAll = async () => {
@@ -148,7 +196,16 @@ function App() {
   };
 
   const handleNewChat = () => {
-    setActiveChat(null);
+    const newChatId = uuidv4();
+    const newChat = {
+      id: Date.now(),
+      chatId: newChatId,
+      name: `Chat ${savedChats.length + 1}`,
+      messages: [],
+      timestamp: new Date().toISOString(),
+    };
+    setActiveChat(newChat);
+    setSavedChats([...savedChats, newChat]);
   };
 
   if (!loggedIn) {
@@ -173,7 +230,7 @@ function App() {
   return (
     <div className="container main-div">
       <nav
-        className={`navbar navbar-nav-scroll navbar-light bg-light mb-2 navbar-dark
+        className={`navbar navbar-nav-scroll navbar-light bg-light mb-2 navbar-dark 
       ${savedChats.length > 10 ? "" : "navbar-expand-sm"}`}
       >
         <div className="container-fluid">
@@ -194,51 +251,70 @@ function App() {
           </button>
 
           <div className="collapse navbar-collapse" id="navbarsExample03">
-            <ul className="navbar-nav me-auto mb-2 mb-sm-0">
-              {savedChats.map((chat) => (
-                <li key={chat.id} className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeChat?.id === chat.id ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      handleLoadChat(chat.id);
-                      const navbarCollapse =
-                        document.querySelector(".navbar-collapse");
-                      new bootstrap.Collapse(navbarCollapse).hide();
-                    }}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {chat.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-            {/* Delete specific chat section */}
+            {/* CHAT LIST */}
+            <WindowSize>
+              {(windowWidth) => (
+                <ul className="navbar-nav me-auto mb-2 mb-sm-0">
+                  {savedChats.map((chat) => (
+                    <li key={chat.id} className="nav-item">
+                      <a
+                        className={`nav-link ${
+                          activeChat?.id === chat.id ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          handleLoadChat(chat.id);
+
+                          if (savedChats.length > 10 || windowWidth < 768) {
+                            const navbarCollapse =
+                              document.querySelector(".navbar-collapse");
+                            new bootstrap.Collapse(navbarCollapse).hide();
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {chat.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </WindowSize>
+
+            {/* DELETE SECTION */}
             {savedChats.length > 0 && (
               <WindowSize savedChats={savedChats}>
-                <select
-                  className="form-select form-select-sm me-2"
-                  value={chatToDelete}
-                  onChange={(e) => setChatToDelete(e.target.value)}
-                  style={{ width: "150px" }}
-                >
-                  <option value="">Select chat...</option>
-                  {savedChats.map((chat) => (
-                    <option key={chat.id} value={chat.id}>
-                      {chat.name}
-                    </option>
-                  ))}
-                </select>
+                {(windowWidth) => (
+                  <div
+                    className={`d-flex align-items-center me-2 ${
+                      savedChats.length > 10 || windowWidth < 768
+                        ? "chatSelect"
+                        : ""
+                    }`}
+                  >
+                    <select
+                      className="form-select form-select-sm me-2"
+                      value={chatToDelete}
+                      onChange={(e) => setChatToDelete(e.target.value)}
+                      style={{ width: "150px" }}
+                    >
+                      <option value="">Select chat...</option>
+                      {savedChats.map((chat) => (
+                        <option key={chat.id} value={chat.id}>
+                          {chat.name}
+                        </option>
+                      ))}
+                    </select>
 
-                <button
-                  className="btn btn-outline-warning btn-sm"
-                  onClick={() => deleteAChat(chatToDelete)}
-                  disabled={!chatToDelete}
-                  title="Delete selected chat"
-                >
-                  Delete Chat
-                </button>
+                    <button
+                      className="btn btn-outline-warning btn-sm"
+                      onClick={() => deleteAChat(chatToDelete)}
+                      disabled={!chatToDelete}
+                      title="Delete selected chat"
+                    >
+                      Delete Chat
+                    </button>
+                  </div>
+                )}
               </WindowSize>
             )}
             <button className="btn btn-danger btn-sm" onClick={handleClearAll}>

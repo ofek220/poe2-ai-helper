@@ -4,16 +4,16 @@ import OpenAI from "openai";
 import multer from "multer";
 import aiPrompt from "../helpers/aiPrompt.js";
 import imgPrompt from "../helpers/imgPrompt.js";
+import { getOpenAIClient } from "../utils/openai.js";
 
-dotenv.config();
 const router = express.Router();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
 const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/", upload.array("images", 5), async (req, res) => {
+  const openai = getOpenAIClient();
   const { prompt, history } = req.body;
   const userPrompt = prompt;
   const systemPrompt = aiPrompt;
@@ -94,12 +94,6 @@ router.post("/", upload.array("images", 5), async (req, res) => {
             max_completion_tokens: 500,
           });
 
-          // token usage
-          const imageUsage = imageAnalysisResponse.usage;
-          console.log(`Prompt: ${imageUsage.prompt_tokens}`);
-          console.log(`Completion: ${imageUsage.completion_tokens}`);
-          console.log(`Total: ${imageUsage.total_tokens}`);
-          //
           imageAnalysis.push(imageAnalysisResponse.choices[0].message.content);
         } catch (imgError) {
           console.error("❌ Error analyzing image:", imgError.message);
@@ -134,6 +128,13 @@ router.post("/", upload.array("images", 5), async (req, res) => {
         messages: allMessages,
         max_completion_tokens: 2000,
       });
+
+      // token usage logging
+      const usage = response.usage;
+      console.log("Token usage:", usage);
+      console.log(`\u001b[31m Prompt: ${usage.prompt_tokens}\u001b[0m`);
+      console.log(`\u001b[32mCompletion: ${usage.completion_tokens}\u001b[0m`);
+      console.log(`\u001b[34mTotal: ${usage.total_tokens}\u001b[0m`);
 
       console.log("✅ OpenAI response received:", response);
       const content = response.choices[0].message.content;

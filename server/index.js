@@ -1,8 +1,12 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
 import bcrypt from "bcrypt";
 import fs from "fs";
+import messagesRoute from "./routes/messages.js";
+import generateRoute from "./routes/generate.js";
+import uploadRouter from "./routes/upload.js";
 
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
@@ -31,6 +35,7 @@ app.use(
   })
 );
 
+// authentication middleware
 const requireAuth = (req, res, next) => {
   if (req.session && req.session.authed) return next();
   return res.status(401).json({ error: "unauthorized" });
@@ -55,18 +60,17 @@ app.post("/login", async (req, res) => {
   req.session.authed = true;
   res.json({ ok: true });
 });
-
-import generateRoute from "./routes/generate.js";
-import uploadRouter from "./routes/upload.js";
+//
+app.use("/messages", requireAuth, messagesRoute);
 
 const uploadDir = "uploads";
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-app.use("/api/generate", generateRoute);
+app.use("/api/generate", requireAuth, generateRoute);
 
-app.use("/api/upload", uploadRouter);
+app.use("/api/upload", requireAuth, uploadRouter);
 app.use(
   "/uploads",
   (req, res, next) => {

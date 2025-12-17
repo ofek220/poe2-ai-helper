@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import ImageUpload from "./ImageUpload";
 import TextareaAutosize from "react-textarea-autosize";
 
-const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
+const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
@@ -18,7 +18,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
 
   useEffect(() => {
     if (onSaveChat) {
-      onSaveChat(messages);
+      onSaveChat(messages, chatId); // pass chatId to App.jsx
     }
   }, [messages]);
 
@@ -60,8 +60,26 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
       setMessages((prev) => [...prev, userMessage]);
       setPrompt("");
       setLoading(true);
+      setImages([]);
+      setPreviews([]);
 
-      const conversationHistory = messages.map((msg) => ({
+      const sessionId = localStorage.getItem("sessionId");
+      if (chatId && sessionId) {
+        await fetch("https://poe2-ai-helper.onrender.com/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            sessionId,
+            chatId,
+            role: "user",
+            message: prompt,
+            images: imagesUploaded,
+          }),
+        });
+      }
+
+      const conversationHistory = [...messages, userMessage].map((msg) => ({
         role: msg.role,
         content: msg.text,
       }));
@@ -97,24 +115,26 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
       const aiMessage = { role: "assistant", text: data.response };
       console.log("💬 Adding AI message to state:", aiMessage);
       setMessages((prev) => [...prev, aiMessage]);
-      setImages([]);
-      setPreviews([]);
-    } catch (err) {
-      console.error("❌ Full Error:", err);
-      let userVisibleMessage;
 
-      if (
-        err.message.includes("Failed to fetch") ||
-        err.message.includes("CORS")
-      ) {
-        userVisibleMessage =
-          "❌ Network Error: Could not connect to the server.";
-      } else {
-        userVisibleMessage = `❌ Request Failed: ${err.message}`;
+      if (chatId && sessionId) {
+        await fetch("https://poe2-ai-helper.onrender.com/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            sessionId,
+            chatId,
+            role: "assistant",
+            message: data.response,
+            images: [],
+          }),
+        });
       }
+    } catch (err) {
+      console.error("Error submitting message:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: userVisibleMessage },
+        { role: "assistant", text: `❌ ${err.message}` },
       ]);
     } finally {
       setLoading(false);
@@ -123,7 +143,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
 
   //https://poe2-ai-helper.onrender.com/api/upload
   // http://localhost:3000/api/upload
-  const handleNewChat = async () => {
+  const handleNewChat = () => {
     const allImageUrls = messages
       .filter((msg) => msg.images && msg.images.length > 0)
       .flatMap((msg) => msg.images);
@@ -144,7 +164,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
   };
 
   return (
-    <div className=" flex-grow-1 overflow-auto chatBox">
+    <div className="flex-grow-1 overflow-auto chatBox">
       <div
         className="container flex-grow-1 overflow-auto p-3 mb-5"
         style={{ height: "60vh" }}
@@ -182,7 +202,7 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat }) => {
                         />
                       </div>
                     ))}
-                  {msg.text && msg.text}
+                  {msg.text}
                 </div>
               )}
             </div>
