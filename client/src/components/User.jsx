@@ -2,24 +2,28 @@ import React, { useState, useEffect, useRef } from "react";
 import ImageUpload from "./ImageUpload";
 import TextareaAutosize from "react-textarea-autosize";
 
-const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
+const User = ({ initialMessages = [], onNewChat, chatId }) => {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState([]);
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
 
   const bottomRef = useRef(null);
 
+  // Initialize messages from props with safety check
+  useEffect(() => {
+    if (Array.isArray(initialMessages)) {
+      setMessages(initialMessages);
+    } else {
+      console.warn("initialMessages is not an array:", initialMessages);
+      setMessages([]);
+    }
+  }, [initialMessages]);
+
   // Scroll to bottom when new messages are added
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    if (onSaveChat) {
-      onSaveChat(messages, chatId); // pass chatId to App.jsx
-    }
   }, [messages]);
 
   const handleSubmit = async (e) => {
@@ -81,22 +85,31 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
 
       const conversationHistory = [...messages, userMessage].map((msg) => ({
         role: msg.role,
-        content: msg.text,
+        content:
+          msg.images && msg.images.length > 0
+            ? [
+                { type: "text", text: msg.text },
+                ...msg.images.map((url) => ({
+                  type: "image_url",
+                  image_url: { url },
+                })),
+              ]
+            : msg.text,
       }));
-
-      const formData = new FormData();
-      formData.append("prompt", prompt);
-      formData.append("history", JSON.stringify(conversationHistory));
-      imagesUploaded.forEach((url) => {
-        formData.append("imageUrls", url);
-      });
 
       const res = await fetch(
         "https://poe2-ai-helper.onrender.com/api/generate",
         {
           method: "POST",
           credentials: "include",
-          body: formData,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: prompt,
+            history: JSON.stringify(conversationHistory),
+            imageUrls: imagesUploaded,
+          }),
         }
       );
 
@@ -105,15 +118,12 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
       }
 
       const data = await res.json();
-      console.log("Full response data:", data);
-      console.log("Response text:", data.response);
 
       if (!data.response) {
         throw new Error("No response content received");
       }
 
       const aiMessage = { role: "assistant", text: data.response };
-      console.log("💬 Adding AI message to state:", aiMessage);
       setMessages((prev) => [...prev, aiMessage]);
 
       if (chatId && sessionId) {
@@ -144,10 +154,6 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
   //https://poe2-ai-helper.onrender.com/api/upload
   // http://localhost:3000/api/upload
   const handleNewChat = () => {
-    const allImageUrls = messages
-      .filter((msg) => msg.images && msg.images.length > 0)
-      .flatMap((msg) => msg.images);
-
     setMessages([]);
     setPrompt("");
     setImages([]);
@@ -169,45 +175,46 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
         className="container flex-grow-1 overflow-auto p-3 mb-5"
         style={{ height: "60vh" }}
       >
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`d-flex mb-3 ${
-              msg.role === "user"
-                ? "justify-content-end"
-                : "justify-content-start"
-            }`}
-          >
+        {Array.isArray(messages) &&
+          messages.map((msg, i) => (
             <div
-              className={`p-2 rounded-4 ${
-                msg.role === "user" ? "userStyle" : "assistant"
+              key={i}
+              className={`d-flex mb-3 ${
+                msg.role === "user"
+                  ? "justify-content-end"
+                  : "justify-content-start"
               }`}
             >
-              {msg.role === "assistant" ? (
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: formatAssistantText(msg.text),
-                  }}
-                />
-              ) : (
-                <div>
-                  {msg.images &&
-                    msg.images.length > 0 &&
-                    msg.images.map((src, idx) => (
-                      <div key={idx}>
-                        <img
-                          src={src}
-                          alt={"user uploaded image"}
-                          className="chatImage"
-                        />
-                      </div>
-                    ))}
-                  {msg.text}
-                </div>
-              )}
+              <div
+                className={`p-2 rounded-4 ${
+                  msg.role === "user" ? "userStyle" : "assistant"
+                }`}
+              >
+                {msg.role === "assistant" ? (
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatAssistantText(msg.text),
+                    }}
+                  />
+                ) : (
+                  <div>
+                    {msg.images &&
+                      msg.images.length > 0 &&
+                      msg.images.map((src, idx) => (
+                        <div key={idx}>
+                          <img
+                            src={src}
+                            alt={"user uploaded image"}
+                            className="chatImage"
+                          />
+                        </div>
+                      ))}
+                    {msg.text}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
         {/* waiting for ai response */}
         {loading && (
@@ -240,7 +247,8 @@ const User = ({ initialMessages = [], onSaveChat, onNewChat, chatId }) => {
           </button>
           <TextareaAutosize
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
                 handleSubmit(e);
               }
             }}

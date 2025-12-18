@@ -14,6 +14,7 @@ if (!sessionId) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [removeTitle, setRemoveTitle] = useState(false);
   const [hideTitle, setHideTitle] = useState(false);
@@ -32,6 +33,8 @@ function App() {
 
   // load saved chats from server
   useEffect(() => {
+    if (!loggedIn) return;
+
     const sessionId = localStorage.getItem("sessionId");
     if (!sessionId) return;
 
@@ -42,53 +45,25 @@ function App() {
       .then((chatThreads) => {
         const formattedChats = chatThreads.map((chat, idx) => ({
           id: chat.chat_id,
+          chatId: chat.chat_id,
           name: `Chat ${idx + 1}`,
-          messages: [],
+          messages: chat.messages.map((m) => ({
+            role: m.role,
+            text: m.text ?? m.message,
+            images: m.images || [],
+          })),
           lastActive: chat.last_active,
         }));
         setSavedChats(formattedChats);
+
+        if (formattedChats.length > 0) {
+          setActiveChat(formattedChats[formattedChats.length - 1]);
+        } else {
+          handleNewChat();
+        }
       })
       .catch((err) => console.error("Failed to load chats:", err));
-  }, []);
-
-  const handleAutoSave = (messages, chatId) => {
-    if (!messages || messages.length === 0) return;
-
-    if (activeChat) {
-      const updatedChat = { ...activeChat, messages };
-      const updatedChats = savedChats.map((chat) =>
-        chat.id === activeChat.id ? updatedChat : chat
-      );
-      setSavedChats(updatedChats);
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(updatedChats));
-      setActiveChat(updatedChat);
-
-      fetch("https://poe2-ai-helper.onrender.com/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          sessionId,
-          chatId,
-          role: "user",
-          messages,
-        }),
-      });
-    } else {
-      if (messages.length >= 2) {
-        const newChat = {
-          id: Date.now(),
-          name: `Chat ${savedChats.length + 1}`,
-          messages,
-          timestamp: new Date().toISOString(),
-        };
-        const updated = [...savedChats, newChat];
-        setSavedChats(updated);
-        localStorage.setItem(LOCAL_KEY, JSON.stringify(updated));
-        setActiveChat(newChat);
-      }
-    }
-  };
+  }, [loggedIn]);
 
   const handleLoadChat = async (chatId) => {
     const sessionId = localStorage.getItem("sessionId");
@@ -107,8 +82,9 @@ function App() {
       const messages = await res.json();
       const loadedChat = {
         id: chatId,
-        name: `Chat ${chatId}`,
-        messages,
+        chatId: chatId,
+        name: savedChats.find((c) => c.id === chatId)?.name || `Chat ${chatId}`,
+        messages: messages,
       };
       setActiveChat(loadedChat);
     } catch (error) {
@@ -119,26 +95,19 @@ function App() {
   // https://poe2-ai-helper.onrender.com/api/upload
   // http://localhost:3000/api/upload
   const handleClearAll = async () => {
-    if (!confirm("Clear all saved chats?")) return;
-
-    const allImageUrls = savedChats
-      .flatMap((chat) => chat.messages || [])
-      .filter((msg) => msg.images && msg.images.length > 0)
-      .flatMap((msg) => msg.images);
-
-    if (allImageUrls.length > 0) {
+    // Delete from database
+    const sessionId = localStorage.getItem("sessionId");
+    if (sessionId) {
       try {
-        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
-          method: "DELETE",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ imageUrls: allImageUrls }),
-        });
-        console.log("🗑️ Deleted all images from server");
+        await fetch(
+          `https://poe2-ai-helper.onrender.com/messages/${sessionId}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
       } catch (error) {
-        console.error("Failed to delete images:", error);
+        console.error("Failed to delete chats from database:", error);
       }
     }
 
@@ -146,6 +115,8 @@ function App() {
     setSavedChats([]);
     setActiveChat(null);
     setChatToDelete("");
+
+    handleNewChat();
   };
 
   const deleteAChat = async (chatId) => {
@@ -155,7 +126,7 @@ function App() {
     }
 
     const chatToDelete = savedChats.find(
-      (chat) => chat.id === parseInt(chatId)
+      (chat) => chat.id === chatId || chat.id === parseInt(chatId)
     );
 
     if (!chatToDelete) {
@@ -184,26 +155,49 @@ function App() {
         console.error("Failed to delete images:", error);
       }
     }
+
+    // Delete from database
+    const sessionId = localStorage.getItem("sessionId");
+    if (sessionId) {
+      try {
+        await fetch(
+          `https://poe2-ai-helper.onrender.com/messages/${sessionId}/${chatId}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+      } catch (error) {
+        console.error("Failed to delete chat from database:", error);
+      }
+    }
+
     const updatedChatsList = savedChats.filter(
-      (chat) => chat.id !== parseInt(chatId)
+      (chat) => chat.id !== chatId && chat.id !== parseInt(chatId)
     );
     setSavedChats(updatedChatsList);
     localStorage.setItem(LOCAL_KEY, JSON.stringify(updatedChatsList));
-    if (activeChat?.id === parseInt(chatId)) {
-      setActiveChat(null);
+
+    if (activeChat?.id === chatId || activeChat?.id === parseInt(chatId)) {
+      if (updatedChatsList.length > 0) {
+        setActiveChat(updatedChatsList[updatedChatsList.length - 1]);
+      } else {
+        handleNewChat();
+      }
     }
     setChatToDelete("");
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     const newChatId = uuidv4();
     const newChat = {
-      id: Date.now(),
+      id: newChatId,
       chatId: newChatId,
       name: `Chat ${savedChats.length + 1}`,
       messages: [],
       timestamp: new Date().toISOString(),
     };
+
     setActiveChat(newChat);
     setSavedChats([...savedChats, newChat]);
   };
@@ -211,6 +205,8 @@ function App() {
   if (!loggedIn) {
     return (
       <LoginForm
+        loading={loading}
+        setLoading={setLoading}
         onLoginSuccess={() => {
           setLoggedIn(true);
           setLoading(false);
@@ -336,8 +332,8 @@ function App() {
       <User
         key={activeChat?.id || "new"}
         initialMessages={activeChat?.messages || []}
-        onSaveChat={handleAutoSave}
         onNewChat={handleNewChat}
+        chatId={activeChat?.chatId}
       />
     </div>
   );

@@ -1,6 +1,4 @@
 import express from "express";
-import dotenv from "dotenv";
-import OpenAI from "openai";
 import multer from "multer";
 import aiPrompt from "../helpers/aiPrompt.js";
 import imgPrompt from "../helpers/imgPrompt.js";
@@ -10,11 +8,9 @@ const router = express.Router();
 const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
 const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
-const upload = multer({ storage: multer.memoryStorage() });
-
-router.post("/", upload.array("images", 5), async (req, res) => {
+router.post("/", async (req, res) => {
   const openai = getOpenAIClient();
-  const { prompt, history } = req.body;
+  const { prompt, history, imageUrls } = req.body;
   const userPrompt = prompt;
   const systemPrompt = aiPrompt;
   const imgAnalysis = imgPrompt;
@@ -46,25 +42,23 @@ router.post("/", upload.array("images", 5), async (req, res) => {
     // testing logs
     console.log("🟢 Encoded Query:", query);
     console.log("🔵 Google Search URL:", googleSearchUrl);
-    console.log("🟠 Raw Fetch Response:", searchResponse);
+    // console.log("🟠 Raw Fetch Response:", searchResponse);
     // console.log(
     //   "🟣 Parsed JSON Response:",
     //   JSON.stringify(searchData, null, 2)
     // );
     console.log("✅ Final Combined Snippets:\n", snippets);
-    console.log("🟣Uploaded files:", req.files);
-
     // end testing logs
 
-    const imageUrls = req.body.imageUrls
-      ? Array.isArray(req.body.imageUrls)
-        ? req.body.imageUrls
-        : [req.body.imageUrls]
+    const imagesArray = imageUrls
+      ? Array.isArray(imageUrls)
+        ? imageUrls
+        : [imageUrls]
       : [];
 
     let imageAnalysis = [];
-    if (imageUrls.length > 0) {
-      for (const url of imageUrls) {
+    if (imagesArray.length > 0) {
+      for (const url of imagesArray) {
         try {
           const imageResponse = await fetch(url);
           const arrayBuffer = await imageResponse.arrayBuffer();
@@ -94,6 +88,18 @@ router.post("/", upload.array("images", 5), async (req, res) => {
             max_completion_tokens: 500,
           });
 
+          // image token usage
+          const imageUsage = imageAnalysisResponse.usage;
+          console.log(
+            `\u001b[31m image Prompt: ${imageUsage.prompt_tokens}\u001b[0m`
+          );
+          console.log(
+            `\u001b[32mimage Completion: ${imageUsage.completion_tokens}\u001b[0m`
+          );
+          console.log(
+            `\u001b[34mimage Total: ${imageUsage.total_tokens}\u001b[0m`
+          );
+          //
           imageAnalysis.push(imageAnalysisResponse.choices[0].message.content);
         } catch (imgError) {
           console.error("❌ Error analyzing image:", imgError.message);

@@ -34,9 +34,8 @@ const JokesArray = [
   { text: "Forgot your password? Congrats, you’re human.", delay: 1500 },
 ];
 
-const LoginForm = ({ onLoginSuccess }) => {
+const LoginForm = ({ loading, setLoading, onLoginSuccess }) => {
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [Jokes, setJokes] = useState(JokesArray);
 
   const handleLogin = async (e) => {

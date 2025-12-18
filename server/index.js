@@ -3,10 +3,6 @@ import express from "express";
 import cors from "cors";
 import session from "express-session";
 import bcrypt from "bcrypt";
-import fs from "fs";
-import messagesRoute from "./routes/messages.js";
-import generateRoute from "./routes/generate.js";
-import uploadRouter from "./routes/upload.js";
 
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
@@ -17,7 +13,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 const PORT = process.env.PORT || 3000;
 
@@ -60,25 +56,16 @@ app.post("/login", async (req, res) => {
   req.session.authed = true;
   res.json({ ok: true });
 });
-//
-app.use("/messages", requireAuth, messagesRoute);
 
-const uploadDir = "uploads";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+import messagesRoute from "./routes/messages.js";
+import generateRoute from "./routes/generate.js";
+import uploadRouter from "./routes/upload.js";
 
-app.use("/api/generate", requireAuth, generateRoute);
+app.use("/messages", messagesRoute);
 
-app.use("/api/upload", requireAuth, uploadRouter);
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    next();
-  },
-  express.static("uploads")
-);
+app.use("/api/generate", generateRoute);
+
+app.use("/api/upload", uploadRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀Server running on port ${PORT}`);
