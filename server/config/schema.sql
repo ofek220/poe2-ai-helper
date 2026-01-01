@@ -6,5 +6,6 @@ CREATE TABLE IF NOT EXISTS chats (
   role TEXT NOT NULL,
   message TEXT,
   images JSONB DEFAULT '[]',
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  class varchar NOT NULL
 );

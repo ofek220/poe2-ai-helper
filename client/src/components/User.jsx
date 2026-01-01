@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import ImageUpload from "./ImageUpload";
 import TextareaAutosize from "react-textarea-autosize";
 
-const User = ({ initialMessages = [], onNewChat, chatId }) => {
+const User = ({ initialMessages = [], onNewChat, chatId, classId }) => {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -79,6 +79,7 @@ const User = ({ initialMessages = [], onNewChat, chatId }) => {
             role: "user",
             message: prompt,
             images: imagesUploaded,
+            classId,
           }),
         });
       }
@@ -106,6 +107,7 @@ const User = ({ initialMessages = [], onNewChat, chatId }) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            classId,
             prompt: prompt,
             history: JSON.stringify(conversationHistory),
             imageUrls: imagesUploaded,
@@ -137,6 +139,7 @@ const User = ({ initialMessages = [], onNewChat, chatId }) => {
             role: "assistant",
             message: data.response,
             images: [],
+            classId,
           }),
         });
       }

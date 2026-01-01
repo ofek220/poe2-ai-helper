@@ -1,6 +1,5 @@
 import express from "express";
-import multer from "multer";
-import aiPrompt from "../helpers/aiPrompt.js";
+import { aiPrompt, classPrompts } from "../helpers/aiPrompt.js";
 import imgPrompt from "../helpers/imgPrompt.js";
 import { getOpenAIClient } from "../utils/openai.js";
 
@@ -10,10 +9,12 @@ const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
 router.post("/", async (req, res) => {
   const openai = getOpenAIClient();
-  const { prompt, history, imageUrls } = req.body;
+  const { prompt, history, imageUrls, classId } = req.body;
   const userPrompt = prompt;
   const systemPrompt = aiPrompt;
+  const class_prompts = classPrompts[classId] || "";
   const imgAnalysis = imgPrompt;
+
   try {
     let conversationHistory = [];
     if (history) {
@@ -119,7 +120,7 @@ router.post("/", async (req, res) => {
     console.log("📝 Final prompt:", finalPrompt);
 
     const allMessages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: systemPrompt + "\n\n" + class_prompts },
       ...conversationHistory,
       {
         role: "user",
@@ -157,7 +158,6 @@ router.post("/", async (req, res) => {
 
       return res.json({ response: content });
     } catch (openaiError) {
-      console.error("❌ OpenAI API call failed:", openaiError);
       console.error(
         "❌ Error details:",
         openaiError.response?.data || openaiError.message
@@ -166,7 +166,6 @@ router.post("/", async (req, res) => {
     }
   } catch (error) {
     console.error("❌ Full error:", error);
-    console.error("❌ Error message:", error.message);
     if (error.response) {
       console.error(
         "❌ OpenAI error details:",

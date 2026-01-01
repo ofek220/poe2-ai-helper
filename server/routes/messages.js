@@ -6,17 +6,24 @@ const router = express.Router();
 // save chat messages to the database
 router.post("/", async (req, res) => {
   try {
-    const { sessionId, chatId, role, message, images } = req.body;
+    const { sessionId, chatId, role, message, images, classId } = req.body;
 
     if (role === "system") {
       return res.status(200).json({ success: true, skipped: true });
     }
 
     const result = await pool.query(
-      `INSERT INTO chats (session_id, chat_id, role, message, images) 
-         VALUES ($1, $2, $3, $4, $5) 
+      `INSERT INTO chats (session_id, chat_id, role, message, images, class_id) 
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-      [sessionId, chatId, role, message || "", JSON.stringify(images || [])]
+      [
+        sessionId,
+        chatId,
+        role,
+        message || "",
+        JSON.stringify(images || []),
+        classId,
+      ]
     );
     res.status(200).json({ success: true, chat: result.rows[0] });
   } catch (error) {
@@ -55,14 +62,17 @@ router.get("/:sessionId/:chatId", async (req, res) => {
 router.get("/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const { classId } = req.query;
 
     const chatsResult = await pool.query(
-      `SELECT chat_id, MIN(created_at) as first_created, MAX(created_at) as last_active
+      `SELECT chat_id, MAX(created_at) as last_active
          FROM chats 
-         WHERE session_id = $1 AND role != 'system'
+         WHERE session_id = $1
+         AND (class_id = $2 OR ($2 = 'general' AND class_id IS NULL)) 
+         AND role != 'system'
          GROUP BY chat_id 
-         ORDER BY first_created ASC`,
-      [sessionId]
+         ORDER BY last_active DESC`,
+      [sessionId, classId]
     );
 
     const chatThreads = await Promise.all(

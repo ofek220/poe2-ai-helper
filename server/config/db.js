@@ -1,9 +1,8 @@
 import dotenv from "dotenv";
 import { join } from "path";
-dotenv.config({ path: join(process.cwd(), "../.env") });
-console.log("Loaded DATABASE_URL:", process.env.DATABASE_URL);
-
 import pg from "pg";
+
+dotenv.config({ path: join(process.cwd(), "../.env") });
 
 const { Pool } = pg;
 
@@ -14,9 +13,19 @@ const pool = new Pool({
     : false,
 });
 
-pool
-  .connect()
-  .then(() => console.log("✅ Connected to Neon database"))
-  .catch((err) => console.error("❌ DB connection error:", err));
+(async () => {
+  try {
+    const client = await pool.connect();
+    console.log("✅ Connected to the database");
+    client.release();
+  } catch (err) {
+    console.error("❌ Database connection failed", err);
+    process.exit(1);
+  }
+})();
+
+pool.on("error", (err) => {
+  console.error("Unexpected error on idle client", err);
+});
 
 export default pool;
