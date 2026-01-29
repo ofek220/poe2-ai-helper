@@ -3,15 +3,17 @@ import express from "express";
 import cors from "cors";
 import session from "express-session";
 import bcrypt from "bcrypt";
+import compression from "compression";
 
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
+app.use(compression());
 
 app.use(
   cors({
     origin: "https://ofek220.github.io",
     credentials: true,
-  })
+  }),
 );
 app.use(express.json({ limit: "10mb" }));
 
@@ -28,7 +30,7 @@ app.use(
       sameSite: "none",
       secure: true,
     },
-  })
+  }),
 );
 
 // authentication middleware
@@ -57,15 +59,15 @@ app.post("/login", async (req, res) => {
   res.json({ ok: true });
 });
 
-import messagesRoute from "./routes/messages.js";
-import generateRoute from "./routes/generate.js";
-import uploadRouter from "./routes/upload.js";
+import messagesRoute from "./src/routes/messages.js";
+import generateRoute from "./src/routes/generate.js";
+import uploadRouter from "./src/routes/upload.js";
+import treeRoute from "./src/routes/treeRoute.js";
 
 app.use("/messages", messagesRoute);
-
 app.use("/api/generate", generateRoute);
-
 app.use("/api/upload", uploadRouter);
+app.use("/api/tree", treeRoute);
 
 app.listen(PORT, () => {
   console.log(`🚀Server running on port ${PORT}`);

@@ -1,0 +1,135 @@
+.topCanvasDiv {
+  position: relative;
+  width: 95%;
+  height: 100%;
+  margin: 2vh auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.canvasWrapper {
+  position: relative;
+  border-radius: 24px;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  border: 2px solid #444;
+  background: #111;
+  display: block;
+}
+
+.classMenu {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+.select {
+  color: white;
+  padding: 6px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: Cinzel, serif;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(20, 20, 20, 0.9);
+  background-size: 12px auto;
+}
+.select:hover {
+  border-color: #ffbb00;
+  background-color: rgba(40, 40, 40, 0.9);
+  box-shadow: 0 0 5px rgba(255, 187, 0, 0.3);
+}
+
+.selectLabel {
+  color: #ffbb00;
+  font-weight: bold;
+  font-family: Cinzel, serif;
+}
+
+.controlInfo {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  pointer-events: none;
+  z-index: 1000;
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.9) 0%,
+    rgba(118, 75, 162, 0.9) 100%
+  );
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tooltipContainer {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(10, 10, 0, 0.95);
+  color: #eee;
+  padding: 12px;
+  border-radius: 4px;
+  pointer-events: none;
+  width: fit-content;
+  max-width: 320px;
+  border: 1px solid #444;
+  z-index: 2000;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+}
+
+.desktopControls {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+@media (max-width: 768px) {
+  .controlInfo {
+    font-size: 0.8em;
+    padding: 4px;
+    top: auto;
+    right: auto;
+    left: 10px;
+    bottom: 10px;
+    background: rgba(0, 0, 0, 0.566);
+  }
+  .desktopControls {
+    display: none;
+  }
+  .classMenu {
+    flex-direction: column;
+    align-items: stretch;
+    background: rgba(0, 0, 0, 0.566);
+    gap: 8px;
+    left: 10px;
+    top: 10px;
+    padding: 10px;
+  }
+  .classMenu > div {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .select {
+  }
+  .selectLabel {
+    margin-right: auto;
+  }
+}

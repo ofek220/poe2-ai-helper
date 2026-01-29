@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
-import LoginForm from "./LoginForm";
-import AiChat from "./AiChat";
-import TitleScreen from "./TitleScreen";
 import { Routes, Route, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+import LoginForm from "./auth/LoginForm";
+import TitleScreen from "./pages/TitleScreen";
+import AiChat from "./pages/AiChat";
+import SkillTreeCanvas from "./pages/SkillTreeCanvas";
+import GlobalNavBar from "./layout/GlobalNavBar";
 
 const LOCAL_KEY = "savedChats_v1";
 
@@ -40,8 +42,11 @@ const App = () => {
 
   const Layout = () => {
     return (
-      <div className="container main-div">
-        <Outlet />
+      <div className="container-fluid main-div">
+        <GlobalNavBar />
+        <div className="flex-grow-1 overflow-auto">
+          <Outlet />
+        </div>
       </div>
     );
   };
@@ -50,8 +55,10 @@ const App = () => {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<TitleScreen />} />
-        <Route path="/chat/:classId" element={<AiChat loggedIn={loggedIn} />} />
+        <Route path="/skillTree" element={<SkillTreeCanvas />} />
       </Route>
+
+      <Route path="/chat/:classId" element={<AiChat loggedIn={loggedIn} />} />
     </Routes>
   );
 };
