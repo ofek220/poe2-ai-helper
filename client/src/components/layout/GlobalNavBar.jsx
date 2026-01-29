@@ -12,6 +12,9 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
     navigate("/skillTree");
   };
 
+  const isGitHub = window.location.hostname.includes("github.io");
+  const publicUrl = isGitHub ? "/poe2-ai-helper" : "";
+
   return (
     <nav className="navbar navbar-light bg-light mb-2 navbar-dark">
       <div className="container-fluid d-flex align-items-center justify-content-start">
@@ -32,7 +35,7 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
           onClick={sendToMainPage}
         >
           <img
-            src="../assets/homeButton.png"
+            src={`${publicUrl}/assets/homeButton.png`}
             className="navbar-homeImgButton"
             alt="home button"
           ></img>

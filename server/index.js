@@ -7,7 +7,17 @@ import compression from "compression";
 
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
-app.use(compression());
+
+app.use(
+  compression({
+    level: 6,
+    threshold: 0,
+    filter: (req, res) => {
+      if (res.getHeader("Content-Type")?.includes("json")) return true;
+      return compression.filter(req, res);
+    },
+  }),
+);
 
 app.use(
   cors({

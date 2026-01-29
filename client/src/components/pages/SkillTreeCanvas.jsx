@@ -589,6 +589,9 @@ const SkillTreeCanvas = () => {
     if (!Object.keys(nodeIndex).length) return;
     const cache = iconCacheRef.current;
 
+    const isGitHub = window.location.hostname.includes("github.io");
+    const publicUrl = isGitHub ? "/poe2-ai-helper" : "";
+
     const loadIcon = (iconPath) => {
       if (!iconPath) return;
       const key = iconPath.toLowerCase();
@@ -596,25 +599,25 @@ const SkillTreeCanvas = () => {
 
       const img = new Image();
       img.__loaded = false;
-      img.__error = false;
 
       img.onload = () => {
         img.__loaded = true;
         setImagesLoaded((prev) => prev + 1);
       };
+
       img.onerror = () => {
-        img.__error = true;
+        console.error(`Failed to load: ${img.src}`);
       };
-      img.src = key;
+
+      img.src = key.startsWith("/") ? `${publicUrl}/assets${key}` : key;
+
       cache[key] = img;
     };
 
     Object.values(nodeIndex).forEach((node) => {
       loadIcon(node.icon);
       if (node.options) {
-        Object.values(node.options).forEach((optionData) => {
-          loadIcon(optionData.icon);
-        });
+        Object.values(node.options).forEach((opt) => loadIcon(opt.icon));
       }
     });
   }, [nodeIndex]);
@@ -934,23 +937,6 @@ const SkillTreeCanvas = () => {
                       ))}
                     </div>
                   )}
-                  {/* Debug Info */}
-                  <div
-                    style={{
-                      marginTop: "12px",
-                      paddingTop: "8px",
-                      borderTop: "1px solid #333",
-                      fontSize: "0.75em",
-                      color: "#b7ff00",
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "5px",
-                    }}
-                  >
-                    <span>ID: {activeNode.hash}</span>
-                    <span>icon: {activeNode.icon}</span>
-                  </div>
-                  {/* debug info end */}
                 </>
               );
             })()}
