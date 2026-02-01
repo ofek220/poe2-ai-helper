@@ -111,19 +111,28 @@ const OVERRIDES = {
 };
 Object.assign(NAME_TO_ID, OVERRIDES);
 
-const findShortestPath = (graph, startIds, targetId, visibleHashes) => {
+const findShortestPath = (
+  graph,
+  startIds,
+  targetId,
+  visibleHashes,
+  allHashes,
+) => {
   if (!startIds.length || !targetId) return [];
   targetId = String(targetId);
   startIds = startIds.map(String);
 
   if (startIds.includes(targetId)) return [targetId];
 
+  // Use allHashes for traversal if provided, otherwise fall back to visibleHashes
+  const traversalSet = allHashes || visibleHashes;
+
   const visited = new Set();
   const parent = {};
   const queue = [];
 
   startIds.forEach((start) => {
-    if (visibleHashes.has(start)) {
+    if (traversalSet.has(start)) {
       queue.push(start);
       visited.add(start);
       parent[start] = null;
@@ -140,13 +149,14 @@ const findShortestPath = (graph, startIds, targetId, visibleHashes) => {
         curr = parent[curr];
       }
       path.reverse();
-      return path;
+      // Filter out invisible hub nodes (mastery etc.) from the returned path
+      return path.filter((id) => visibleHashes.has(id));
     }
 
     const neighbors = graph[current] ?? [];
     for (const neighbor of neighbors) {
       const neighborStr = String(neighbor);
-      if (!visited.has(neighborStr) && visibleHashes.has(neighborStr)) {
+      if (!visited.has(neighborStr) && traversalSet.has(neighborStr)) {
         visited.add(neighborStr);
         parent[neighborStr] = current;
         queue.push(neighborStr);
@@ -173,13 +183,15 @@ const SkillTreeCanvas = () => {
 
   // Pan and zoom state
   const [scale, setScale] = useState(0.05);
+  const lastTouchDistanceRef = useRef(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const isPanningRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
-  // const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const dimensionsRef = useRef({ width: 0, height: 0 });
   const canvasBoundaryRef = useRef(null);
   const hasInitialCentered = useRef(false);
+  const isMobile = window.innerWidth <= 768;
+  const hasMovedRef = useRef(false);
 
   const treeDataRef = useRef({
     graph,
@@ -284,6 +296,8 @@ const SkillTreeCanvas = () => {
       scale,
       pan,
       imagesLoaded,
+      startNodeId,
+      allNodeHashes,
     };
   }, [
     graph,
@@ -295,7 +309,13 @@ const SkillTreeCanvas = () => {
     scale,
     pan,
     imagesLoaded,
+    startNodeId,
+    allNodeHashes,
   ]);
+
+  const allNodeHashes = useMemo(() => {
+    return new Set(Object.keys(nodeIndex).map(String));
+  }, [nodeIndex]);
 
   const startNodeId = useMemo(() => {
     if (selectedClass === "None") {
@@ -572,19 +592,26 @@ const SkillTreeCanvas = () => {
     }
 
     const starts = selectedNodes.length > 0 ? selectedNodes : [startNodeId];
-    // Assuming findShortestPath is imported/available
     if (typeof findShortestPath !== "undefined") {
       const calculatedPath = findShortestPath(
         graph,
         starts,
         hoveredNode,
         visibleNodes.hashes,
+        allNodeHashes,
       );
       setPath(calculatedPath);
     }
-  }, [hoveredNode, selectedNodes, startNodeId, graph, visibleNodes.hashes]);
+  }, [
+    hoveredNode,
+    selectedNodes,
+    startNodeId,
+    graph,
+    visibleNodes.hashes,
+    allNodeHashes,
+  ]);
 
-  // Image Loading Logic
+  // icons Loading Logic
   useEffect(() => {
     if (!Object.keys(nodeIndex).length) return;
     const cache = iconCacheRef.current;
@@ -605,9 +632,9 @@ const SkillTreeCanvas = () => {
         setImagesLoaded((prev) => prev + 1);
       };
 
-      img.onerror = () => {
-        console.error(`Failed to load: ${img.src}`);
-      };
+      // img.onerror = () => {
+      //   console.error(`Failed to load: ${img.src}`);
+      // };
 
       img.src = key.startsWith("/") ? `${publicUrl}/assets${key}` : key;
 
@@ -663,13 +690,33 @@ const SkillTreeCanvas = () => {
     };
   }, [scale, pan]);
 
-  // Mouse pan
+  // handle touch events for panning and zooming
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [scale, pan]);
+
+  // Handle mouse events for panning and zooming
   const handleMouseDown = (e) => {
     isPanningRef.current = true;
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
     canvasRef.current.style.cursor = "grabbing";
   };
 
+  const handleMouseUp = () => {
+    isPanningRef.current = false;
+    canvasRef.current.style.cursor = "grab";
+  };
   const handleMouseMove = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -709,91 +756,211 @@ const SkillTreeCanvas = () => {
     setHoveredNode(foundNode);
   };
 
-  const handleMouseUp = () => {
-    isPanningRef.current = false;
-    canvasRef.current.style.cursor = "grab";
-  };
+  // Helper to find which node was clicked/tapped
+  const getNodeAtPosition = useCallback(
+    (clientX, clientY) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
+
+      const worldX = (mx - pan.x) / scale;
+      const worldY = (my - pan.y) / scale;
+
+      const detectionRadius = 50;
+
+      for (const node of visibleNodes.list) {
+        const dx = node.x - worldX;
+        const dy = node.y - worldY;
+        if (Math.sqrt(dx * dx + dy * dy) < detectionRadius) {
+          return node.hash;
+        }
+      }
+      return null;
+    },
+    [pan, scale, visibleNodes.list],
+  );
+
+  const touchStartPosRef = useRef({ x: 0, y: 0 });
 
   const handleTouchStart = (e) => {
+    e.preventDefault();
+
+    if (e.touches.length > 0) {
+      setMousePos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      touchStartPosRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+
+    hasMovedRef.current = false;
+
     if (e.touches.length === 1) {
       isPanningRef.current = true;
-      const touch = e.touches[0];
-      lastMouseRef.current = { x: touch.clientX, y: touch.clientY };
+      lastMouseRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    } else if (e.touches.length === 2) {
+      isPanningRef.current = false;
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+      lastTouchDistanceRef.current = dist;
     }
   };
 
   const handleTouchMove = (e) => {
-    if (!isPanningRef.current || e.touches.length !== 1) return;
+    e.preventDefault();
 
-    const touch = e.touches[0];
-    const dx = touch.clientX - lastMouseRef.current.x;
-    const dy = touch.clientY - lastMouseRef.current.y;
+    if (e.touches.length === 1) {
+      const jitterDx = e.touches[0].clientX - touchStartPosRef.current.x;
+      const jitterDy = e.touches[0].clientY - touchStartPosRef.current.y;
+      if (Math.sqrt(jitterDx * jitterDx + jitterDy * jitterDy) > 8) {
+        hasMovedRef.current = true;
+      }
+    } else {
+      hasMovedRef.current = true;
+    }
 
-    setPan((prev) => ({
-      x: prev.x + dx,
-      y: prev.y + dy,
-    }));
+    const rect = canvasRef.current.getBoundingClientRect();
 
-    lastMouseRef.current = { x: touch.clientX, y: touch.clientY };
-  };
+    if (e.touches.length === 1 && isPanningRef.current) {
+      const touch = e.touches[0];
+      const panDx = touch.clientX - lastMouseRef.current.x;
+      const panDy = touch.clientY - lastMouseRef.current.y;
 
-  const handleTouchEnd = () => {
-    isPanningRef.current = false;
-  };
+      setMousePos({ x: touch.clientX, y: touch.clientY });
+      setPan((prev) => ({
+        x: prev.x + panDx,
+        y: prev.y + panDy,
+      }));
 
-  const handleNodeClick = (clickedHash) => {
-    if (!clickedHash || !startNodeId) return;
-    const clickedStr = String(clickedHash);
-    if (clickedStr === startNodeId) return;
+      lastMouseRef.current = { x: touch.clientX, y: touch.clientY };
 
-    const isAlreadySelected = selectedNodes.includes(clickedStr);
+      const mx = touch.clientX - rect.left;
+      const my = touch.clientY - rect.top;
+      const worldX = (mx - pan.x) / scale;
+      const worldY = (my - pan.y) / scale;
 
-    let starts = selectedNodes.length > 0 ? [...selectedNodes] : [startNodeId];
+      const detectionRadius = 50;
 
-    if (typeof findShortestPath !== "undefined") {
-      const fullPath = findShortestPath(
-        graph,
-        starts,
-        clickedStr,
-        visibleNodes.hashes,
+      let foundNode = null;
+      for (const node of visibleNodes.list) {
+        const hitDx = node.x - worldX;
+        const hitDy = node.y - worldY;
+        if (Math.sqrt(hitDx * hitDx + hitDy * hitDy) < detectionRadius) {
+          foundNode = node.hash;
+          break;
+        }
+      }
+      setHoveredNode(foundNode);
+    } else if (
+      e.touches.length === 2 &&
+      lastTouchDistanceRef.current !== null
+    ) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
       );
 
-      if (fullPath.length === 0) return;
+      const zoomFactor = currentDist / lastTouchDistanceRef.current;
+      if (Math.abs(zoomFactor - 1) < 0.01) return;
 
-      if (!isAlreadySelected) {
-        setSelectedNodes((prev) => {
-          const newSet = new Set([...prev, ...fullPath]);
-          return Array.from(newSet);
-        });
-      } else {
-        setSelectedNodes((prev) => {
-          let newSelected = prev.filter((id) => id !== clickedStr);
-          if (newSelected.length === 0) return [];
+      const midX =
+        (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
 
-          const visited = new Set();
-          const queue = [startNodeId];
-          visited.add(startNodeId);
+      const worldX = (midX - pan.x) / scale;
+      const worldY = (midY - pan.y) / scale;
 
-          while (queue.length > 0) {
-            const current = queue.shift();
-            const neighbors = graph[current] ?? [];
-            for (const neighbor of neighbors) {
-              const neighborStr = String(neighbor);
-              if (
-                !visited.has(neighborStr) &&
-                newSelected.includes(neighborStr) &&
-                visibleNodes.hashes.has(neighborStr)
-              ) {
-                visited.add(neighborStr);
-                queue.push(neighborStr);
-              }
-            }
-          }
-          return Array.from(visited);
-        });
-      }
+      const newScale = Math.max(0.05, Math.min(5, scale * zoomFactor));
+
+      setScale(newScale);
+      setPan({
+        x: midX - worldX * newScale,
+        y: midY - worldY * newScale,
+      });
+
+      lastTouchDistanceRef.current = currentDist;
+      setHoveredNode(null);
     }
   };
+
+  const handleTouchEnd = (e) => {
+    if (e.cancelable) e.preventDefault();
+
+    isPanningRef.current = false;
+
+    if (e.changedTouches.length === 1 && !hasMovedRef.current) {
+      const touch = e.changedTouches[0];
+      const clickedHash = getNodeAtPosition(touch.clientX, touch.clientY);
+
+      if (clickedHash) {
+        handleNodeClick(clickedHash);
+      }
+    }
+
+    lastTouchDistanceRef.current = null;
+    setHoveredNode(null);
+    hasMovedRef.current = false; // Reset
+  };
+
+  const handleNodeClick = useCallback(
+    (clickedHash) => {
+      if (!clickedHash || !startNodeId) return;
+
+      const clickedStr = String(clickedHash);
+      if (clickedStr === startNodeId) return;
+
+      setSelectedNodes((prevSelected) => {
+        const isAlreadySelected = prevSelected.includes(clickedStr);
+
+        const starts =
+          prevSelected.length > 0 ? [...prevSelected] : [startNodeId];
+
+        const fullPath = findShortestPath(
+          graph,
+          starts,
+          clickedStr,
+          visibleNodes.hashes,
+          allNodeHashes,
+        );
+
+        if (fullPath.length === 0) return prevSelected;
+
+        if (!isAlreadySelected) {
+          const newSet = new Set([...prevSelected, ...fullPath]);
+          return Array.from(newSet);
+        }
+
+        let newSelected = prevSelected.filter((id) => id !== clickedStr);
+        if (newSelected.length === 0) return [];
+
+        const visited = new Set([startNodeId]);
+        const queue = [startNodeId];
+
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          for (const neigh of graph[curr] || []) {
+            const nStr = String(neigh);
+            if (!visited.has(nStr) && newSelected.includes(nStr)) {
+              visited.add(nStr);
+              queue.push(nStr);
+            }
+          }
+        }
+
+        // Only keep nodes that are both reachable AND visible
+        return Array.from(visited).filter((id) => visibleNodes.hashes.has(id));
+      });
+    },
+    [startNodeId, graph, visibleNodes.hashes, allNodeHashes],
+  );
 
   return (
     <div className="topCanvasDiv" ref={canvasBoundaryRef}>
@@ -852,9 +1019,10 @@ const SkillTreeCanvas = () => {
             isPanningRef.current = false;
             setHoveredNode(null);
           }}
-          onClick={() => {
-            if (hoveredNode) {
-              handleNodeClick(hoveredNode);
+          onClick={(e) => {
+            const clickedHash = getNodeAtPosition(e.clientX, e.clientY);
+            if (clickedHash) {
+              handleNodeClick(clickedHash);
             }
           }}
           style={{
@@ -865,7 +1033,7 @@ const SkillTreeCanvas = () => {
           }}
         />
 
-        {/* CONTROLS INFO (Top Left) */}
+        {/* CONTROLS INFO */}
         <div className="controlInfo">
           <div className="desktopControls">
             Controls
@@ -884,64 +1052,77 @@ const SkillTreeCanvas = () => {
         </div>
 
         {/* TOOLTIP */}
-        {hoveredNode && nodeIndex[hoveredNode] && (
-          <div
-            className="tooltipContainer"
-            style={{
-              left: mousePos.x + 15,
-              top: mousePos.y + 15,
-            }}
-          >
-            {(() => {
-              const activeNode = hoveredNode
-                ? visibleNodes.list.find(
-                    (n) => String(n.hash) === String(hoveredNode),
-                  )
-                : null;
+        {hoveredNode &&
+          nodeIndex[hoveredNode] &&
+          (() => {
+            const containerRect =
+              canvasBoundaryRef.current?.getBoundingClientRect();
+            const tooltipLeft = isMobile
+              ? mousePos.x - (containerRect?.left ?? 0) + 15
+              : pan.x + nodeIndex[hoveredNode].x * scale + 20;
+            const tooltipTop = isMobile
+              ? mousePos.y - (containerRect?.top ?? 0) - 60
+              : pan.y + nodeIndex[hoveredNode].y * scale + 20;
 
-              if (!activeNode) return null;
+            return (
+              <div
+                className="tooltipContainer"
+                style={{
+                  left: `${tooltipLeft}px`,
+                  top: `${tooltipTop}px`,
+                }}
+              >
+                {(() => {
+                  const activeNode = hoveredNode
+                    ? visibleNodes.list.find(
+                        (n) => String(n.hash) === String(hoveredNode),
+                      )
+                    : null;
 
-              return (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <strong
-                      style={{
-                        fontSize: "1.2em",
-                        color: activeNode.isKeystone
-                          ? "#dc2626"
-                          : activeNode.isNotable
-                            ? "#3b82f6"
-                            : "#e2e8f0",
-                      }}
-                    >
-                      {activeNode.name}
-                    </strong>
-                  </div>
+                  if (!activeNode) return null;
 
-                  {activeNode.stats && activeNode.stats.length > 0 && (
-                    <div style={{ fontSize: "0.95em", lineHeight: "1.4" }}>
-                      {activeNode.stats.map((stat, i) => (
-                        <div
-                          key={i}
-                          style={{ color: "#93c5fd", marginBottom: "2px" }}
+                  return (
+                    <>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <strong
+                          style={{
+                            fontSize: "1.2em",
+                            color: activeNode.isKeystone
+                              ? "#dc2626"
+                              : activeNode.isNotable
+                                ? "#3b82f6"
+                                : "#e2e8f0",
+                          }}
                         >
-                          {stat}
+                          {activeNode.name}
+                        </strong>
+                      </div>
+
+                      {activeNode.stats && activeNode.stats.length > 0 && (
+                        <div style={{ fontSize: "0.95em", lineHeight: "1.4" }}>
+                          {activeNode.stats.map((stat, i) => (
+                            <div
+                              key={i}
+                              style={{ color: "#93c5fd", marginBottom: "2px" }}
+                            >
+                              {stat}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        )}
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            );
+          })()}
       </div>
     </div>
   );
