@@ -1,9 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import session from "express-session";
 import bcrypt from "bcrypt";
 import compression from "compression";
+import jwt from "jsonwebtoken";
 
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
@@ -28,32 +28,32 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 
 const PORT = process.env.PORT || 3000;
-
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
-      httpOnly: true,
-      sameSite: "none",
-      secure: true,
-    },
-  }),
-);
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here"; // Add to .env
 
 // authentication middleware
 const requireAuth = (req, res, next) => {
-  if (req.session && req.session.authed) return next();
-  return res.status(401).json({ error: "unauthorized" });
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "unauthorized" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // Optional: store user data if needed
+    next();
+  } catch (err) {
+    res.status(401).json({ error: "invalid token" });
+  }
 };
 
 app.get("/api/check", (req, res) => {
-  if (req.session && req.session.authed) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.json({ loggedIn: false });
+
+  try {
+    jwt.verify(token, JWT_SECRET);
     return res.json({ loggedIn: true });
+  } catch (err) {
+    return res.json({ loggedIn: false });
   }
-  return res.json({ loggedIn: false });
 });
 
 app.post("/login", async (req, res) => {
@@ -65,8 +65,10 @@ app.post("/login", async (req, res) => {
   if (!ok) {
     return res.status(401).json({ message: "Password is incorrect" });
   }
-  req.session.authed = true;
-  res.json({ ok: true });
+
+  // generate JWT (expires in 1 day)
+  const token = jwt.sign({ authed: true }, JWT_SECRET, { expiresIn: "1d" });
+  res.json({ ok: true, token });
 });
 
 import messagesRoute from "./src/routes/messages.js";
@@ -74,10 +76,10 @@ import generateRoute from "./src/routes/generate.js";
 import uploadRouter from "./src/routes/upload.js";
 import treeRoute from "./src/routes/treeRoute.js";
 
-app.use("/messages", messagesRoute);
-app.use("/api/generate", generateRoute);
-app.use("/api/upload", uploadRouter);
-app.use("/api/tree", treeRoute);
+app.use("/messages", requireAuth, messagesRoute);
+app.use("/api/generate", requireAuth, generateRoute);
+app.use("/api/upload", requireAuth, uploadRouter);
+app.use("/api/tree", requireAuth, treeRoute);
 
 app.listen(PORT, () => {
   console.log(`🚀Server running on port ${PORT}`);

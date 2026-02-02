@@ -1,7 +1,7 @@
 .topCanvasDiv {
   position: relative;
   width: 95%;
-  height: 100%;
+  height: 86dvh;
   margin: 2vh auto;
   display: flex;
   align-items: center;

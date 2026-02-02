@@ -6,6 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import "../../styles/canvas.css";
+import { getAuthHeaders } from "../auth/Auth.jsx";
 
 const ASCENDANCY_DATA = {
   Witch: ["Infernalist", "Blood Mage", "Lich", "Abyssal Lich"],
@@ -284,39 +285,6 @@ const SkillTreeCanvas = () => {
     };
   }, [nodeIndex, selectedAscendancy, selectedNodes, selectedClass]);
 
-  // Update the data ref whenever React state changes
-  useEffect(() => {
-    treeDataRef.current = {
-      graph,
-      nodeIndex,
-      visibleNodes,
-      path,
-      selectedNodes,
-      hoveredNode,
-      scale,
-      pan,
-      imagesLoaded,
-      startNodeId,
-      allNodeHashes,
-    };
-  }, [
-    graph,
-    nodeIndex,
-    visibleNodes,
-    path,
-    selectedNodes,
-    hoveredNode,
-    scale,
-    pan,
-    imagesLoaded,
-    startNodeId,
-    allNodeHashes,
-  ]);
-
-  const allNodeHashes = useMemo(() => {
-    return new Set(Object.keys(nodeIndex).map(String));
-  }, [nodeIndex]);
-
   const startNodeId = useMemo(() => {
     if (selectedClass === "None") {
       const witchRoot = visibleNodes.list.find(
@@ -343,6 +311,33 @@ const SkillTreeCanvas = () => {
     }
   }, [selectedClass, selectedAscendancy, visibleNodes]);
 
+  // Update the data ref whenever React state changes
+  useEffect(() => {
+    treeDataRef.current = {
+      graph,
+      nodeIndex,
+      visibleNodes,
+      path,
+      selectedNodes,
+      hoveredNode,
+      scale,
+      pan,
+      imagesLoaded,
+      startNodeId,
+    };
+  }, [
+    graph,
+    nodeIndex,
+    visibleNodes,
+    path,
+    selectedNodes,
+    hoveredNode,
+    scale,
+    pan,
+    imagesLoaded,
+    startNodeId,
+  ]);
+
   const regularPointsSpent = useMemo(() => {
     return selectedNodes.filter((hash) => {
       const node = nodeIndex[hash];
@@ -366,7 +361,9 @@ const SkillTreeCanvas = () => {
 
   // Load tree data
   useEffect(() => {
-    fetch("https://poe2-ai-helper.onrender.com/api/tree/full")
+    fetch("https://poe2-ai-helper.onrender.com/api/tree/full", {
+      headers: getAuthHeaders(),
+    })
       .then((res) => res.json())
       .then((data) => {
         setGraph(data.graph);
@@ -598,18 +595,10 @@ const SkillTreeCanvas = () => {
         starts,
         hoveredNode,
         visibleNodes.hashes,
-        allNodeHashes,
       );
       setPath(calculatedPath);
     }
-  }, [
-    hoveredNode,
-    selectedNodes,
-    startNodeId,
-    graph,
-    visibleNodes.hashes,
-    allNodeHashes,
-  ]);
+  }, [hoveredNode, selectedNodes, startNodeId, graph, visibleNodes.hashes]);
 
   // icons Loading Logic
   useEffect(() => {
@@ -695,14 +684,18 @@ const SkillTreeCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-    canvas.addEventListener("touchend", handleTouchEnd);
+    const handleStart = (e) => handleTouchStart(e);
+    const handleMove = (e) => handleTouchMove(e);
+    const handleEnd = (e) => handleTouchEnd(e);
+
+    canvas.addEventListener("touchstart", handleStart, { passive: false });
+    canvas.addEventListener("touchmove", handleMove, { passive: false });
+    canvas.addEventListener("touchend", handleEnd, { passive: false });
 
     return () => {
-      canvas.removeEventListener("touchstart", handleTouchStart);
-      canvas.removeEventListener("touchmove", handleTouchMove);
-      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("touchstart", handleStart);
+      canvas.removeEventListener("touchmove", handleMove);
+      canvas.removeEventListener("touchend", handleEnd);
     };
   }, [scale, pan]);
 
@@ -724,12 +717,12 @@ const SkillTreeCanvas = () => {
 
     // Handle panning
     if (isPanningRef.current) {
-      const dx = e.clientX - lastMouseRef.current.x;
-      const dy = e.clientY - lastMouseRef.current.y;
+      const mousePanDx = e.clientX - lastMouseRef.current.x;
+      const mousePanDy = e.clientY - lastMouseRef.current.y;
 
       setPan({
-        x: pan.x + dx,
-        y: pan.y + dy,
+        x: pan.x + mousePanDx,
+        y: pan.y + mousePanDy,
       });
 
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -746,9 +739,12 @@ const SkillTreeCanvas = () => {
     const detectionRadius = 50;
 
     for (const node of visibleNodes.list) {
-      const dx = node.x - worldX;
-      const dy = node.y - worldY;
-      if (Math.sqrt(dx * dx + dy * dy) < detectionRadius) {
+      const mouseHitDx = node.x - worldX;
+      const mouseHitDy = node.y - worldY;
+      if (
+        Math.sqrt(mouseHitDx * mouseHitDx + mouseHitDy * mouseHitDy) <
+        detectionRadius
+      ) {
         foundNode = node.hash;
         break;
       }
@@ -820,7 +816,7 @@ const SkillTreeCanvas = () => {
     if (e.touches.length === 1) {
       const jitterDx = e.touches[0].clientX - touchStartPosRef.current.x;
       const jitterDy = e.touches[0].clientY - touchStartPosRef.current.y;
-      if (Math.sqrt(jitterDx * jitterDx + jitterDy * jitterDy) > 8) {
+      if (Math.sqrt(jitterDx * jitterDx + jitterDy * jitterDy) > 16) {
         hasMovedRef.current = true;
       }
     } else {
@@ -844,15 +840,15 @@ const SkillTreeCanvas = () => {
 
       const mx = touch.clientX - rect.left;
       const my = touch.clientY - rect.top;
-      const worldX = (mx - pan.x) / scale;
-      const worldY = (my - pan.y) / scale;
+      const panWorldX = (mx - pan.x) / scale;
+      const panWorldY = (my - pan.y) / scale;
 
-      const detectionRadius = 50;
+      const detectionRadius = 60;
 
       let foundNode = null;
       for (const node of visibleNodes.list) {
-        const hitDx = node.x - worldX;
-        const hitDy = node.y - worldY;
+        const hitDx = node.x - panWorldX;
+        const hitDy = node.y - panWorldY;
         if (Math.sqrt(hitDx * hitDx + hitDy * hitDy) < detectionRadius) {
           foundNode = node.hash;
           break;
@@ -875,15 +871,15 @@ const SkillTreeCanvas = () => {
         (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
 
-      const worldX = (midX - pan.x) / scale;
-      const worldY = (midY - pan.y) / scale;
+      const zoomWorldX = (midX - pan.x) / scale;
+      const zoomWorldY = (midY - pan.y) / scale;
 
       const newScale = Math.max(0.05, Math.min(5, scale * zoomFactor));
 
       setScale(newScale);
       setPan({
-        x: midX - worldX * newScale,
-        y: midY - worldY * newScale,
+        x: midX - zoomWorldX * newScale,
+        y: midY - zoomWorldY * newScale,
       });
 
       lastTouchDistanceRef.current = currentDist;
@@ -892,22 +888,20 @@ const SkillTreeCanvas = () => {
   };
 
   const handleTouchEnd = (e) => {
-    if (e.cancelable) e.preventDefault();
-
+    e.preventDefault();
     isPanningRef.current = false;
+    lastTouchDistanceRef.current = null;
 
     if (e.changedTouches.length === 1 && !hasMovedRef.current) {
       const touch = e.changedTouches[0];
       const clickedHash = getNodeAtPosition(touch.clientX, touch.clientY);
-
       if (clickedHash) {
         handleNodeClick(clickedHash);
       }
     }
 
-    lastTouchDistanceRef.current = null;
     setHoveredNode(null);
-    hasMovedRef.current = false; // Reset
+    hasMovedRef.current = false;
   };
 
   const handleNodeClick = useCallback(
@@ -928,7 +922,6 @@ const SkillTreeCanvas = () => {
           starts,
           clickedStr,
           visibleNodes.hashes,
-          allNodeHashes,
         );
 
         if (fullPath.length === 0) return prevSelected;
@@ -959,7 +952,7 @@ const SkillTreeCanvas = () => {
         return Array.from(visited).filter((id) => visibleNodes.hashes.has(id));
       });
     },
-    [startNodeId, graph, visibleNodes.hashes, allNodeHashes],
+    [startNodeId, graph, visibleNodes.hashes],
   );
 
   return (
@@ -1012,9 +1005,6 @@ const SkillTreeCanvas = () => {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
           onMouseLeave={() => {
             isPanningRef.current = false;
             setHoveredNode(null);

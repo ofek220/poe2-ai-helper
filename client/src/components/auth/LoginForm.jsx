@@ -38,23 +38,6 @@ const LoginForm = ({ loading, setLoading, onLoginSuccess }) => {
   const [password, setPassword] = useState("");
   const [Jokes, setJokes] = useState(JokesArray);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    const res = await fetch("https://poe2-ai-helper.onrender.com/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ password }),
-    });
-    if (res.ok) onLoginSuccess();
-    else {
-      setLoading(false);
-      alert("Invalid password");
-    }
-  };
-
   useEffect(() => {
     const shuffleArray = (array) => {
       const newArray = [...array];
@@ -70,6 +53,34 @@ const LoginForm = ({ loading, setLoading, onLoginSuccess }) => {
     setJokes(sequence);
   }, []);
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("https://poe2-ai-helper.onrender.com/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok && data.token) {
+        onLoginSuccess(data.token);
+      } else {
+        alert(data.message || "Invalid password");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      alert("Could not connect to server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="login-container form-group">
       <h2>Please log in</h2>
@@ -84,6 +95,7 @@ const LoginForm = ({ loading, setLoading, onLoginSuccess }) => {
           onChange={(e) => setPassword(e.target.value)}
           disabled={loading}
         />
+
         <button
           type="submit"
           className="btn btn-outline-light"

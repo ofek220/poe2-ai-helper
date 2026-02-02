@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import ChatSidebar from "../Layout/ChatSidebar";
 import GlobalNavBar from "../layout/GlobalNavBar";
+import { getAuthHeaders } from "../auth/Auth.jsx";
 
 const AiChat = ({ loggedIn }) => {
   const [removeTitle, setRemoveTitle] = useState(false);
@@ -27,6 +28,7 @@ const AiChat = ({ loggedIn }) => {
       `https://poe2-ai-helper.onrender.com/messages/${sessionId}?classId=${classId}`,
       {
         credentials: "include",
+        headers: getAuthHeaders(),
       },
     )
       .then((res) => res.json())
@@ -62,6 +64,7 @@ const AiChat = ({ loggedIn }) => {
         `https://poe2-ai-helper.onrender.com/messages/${sessionId}/${chatId}`,
         {
           credentials: "include",
+          headers: getAuthHeaders(),
         },
       );
 
@@ -97,6 +100,7 @@ const AiChat = ({ loggedIn }) => {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ imageUrls: allImageUrls }),
         });
@@ -113,6 +117,7 @@ const AiChat = ({ loggedIn }) => {
           {
             method: "DELETE",
             credentials: "include",
+            headers: getAuthHeaders(),
           },
         );
       } catch (error) {
@@ -156,6 +161,7 @@ const AiChat = ({ loggedIn }) => {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ imageUrls }),
         });
@@ -173,6 +179,7 @@ const AiChat = ({ loggedIn }) => {
           {
             method: "DELETE",
             credentials: "include",
+            headers: getAuthHeaders(),
           },
         );
       } catch (error) {

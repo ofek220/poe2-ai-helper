@@ -8,6 +8,7 @@ import SkillTreeCanvas from "./pages/SkillTreeCanvas";
 import GlobalNavBar from "./layout/GlobalNavBar";
 
 const LOCAL_KEY = "savedChats_v1";
+const TOKEN_KEY = "authToken";
 
 let sessionId = localStorage.getItem("sessionId");
 if (!sessionId) {
@@ -18,24 +19,42 @@ if (!sessionId) {
 const App = () => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
 
   useEffect(() => {
-    fetch("https://poe2-ai-helper.onrender.com/api/check", {
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => setLoggedIn(data.loggedIn));
-  }, []);
+    if (token) {
+      fetch("https://poe2-ai-helper.onrender.com/api/check", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.loggedIn) {
+            setLoggedIn(true);
+          } else {
+            localStorage.removeItem(TOKEN_KEY);
+            setToken(null);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem(TOKEN_KEY);
+          setToken(null);
+        });
+    }
+  }, [token]);
+
+  const handleLoginSuccess = (newToken) => {
+    localStorage.setItem(TOKEN_KEY, newToken);
+    setToken(newToken);
+    setLoggedIn(true);
+    setLoading(false);
+  };
 
   if (!loggedIn) {
     return (
       <LoginForm
         loading={loading}
         setLoading={setLoading}
-        onLoginSuccess={() => {
-          setLoggedIn(true);
-          setLoading(false);
-        }}
+        onLoginSuccess={handleLoginSuccess}
       />
     );
   }
