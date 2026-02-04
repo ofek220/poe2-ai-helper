@@ -361,7 +361,7 @@ const SkillTreeCanvas = () => {
 
   // Load tree data
   useEffect(() => {
-    fetch("https://poe2-ai-helper.onrender.com/api/tree/full", {
+    fetch(`${import.meta.env.VITE_API_URL}/api/tree/full`, {
       headers: getAuthHeaders(),
     })
       .then((res) => res.json())
@@ -625,8 +625,9 @@ const SkillTreeCanvas = () => {
       //   console.error(`Failed to load: ${img.src}`);
       // };
 
-      img.src = key.startsWith("/") ? `${publicUrl}/assets${key}` : key;
-
+      img.src = key.startsWith("/")
+        ? `${import.meta.env.BASE_URL}assets${key}`
+        : key;
       cache[key] = img;
     };
 
@@ -874,7 +875,7 @@ const SkillTreeCanvas = () => {
       const zoomWorldX = (midX - pan.x) / scale;
       const zoomWorldY = (midY - pan.y) / scale;
 
-      const newScale = Math.max(0.05, Math.min(5, scale * zoomFactor));
+      const newScale = Math.max(0.008, Math.min(6, scale * zoomFactor));
 
       setScale(newScale);
       setPan({

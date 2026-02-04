@@ -8,6 +8,10 @@ import jwt from "jsonwebtoken";
 const app = express();
 // origin: "http://localhost:5173", https://ofek220.github.io
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim());
+
 app.use(
   compression({
     level: 6,
@@ -21,7 +25,7 @@ app.use(
 
 app.use(
   cors({
-    origin: "https://ofek220.github.io",
+    origin: allowedOrigins,
     credentials: true,
   }),
 );

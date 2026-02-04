@@ -25,7 +25,7 @@ const AiChat = ({ loggedIn }) => {
     if (!sessionId) return;
 
     fetch(
-      `https://poe2-ai-helper.onrender.com/messages/${sessionId}?classId=${classId}`,
+      `${import.meta.env.VITE_API_URL}/messages/${sessionId}?classId=${classId}`,
       {
         credentials: "include",
         headers: getAuthHeaders(),
@@ -61,7 +61,7 @@ const AiChat = ({ loggedIn }) => {
 
     try {
       const res = await fetch(
-        `https://poe2-ai-helper.onrender.com/messages/${sessionId}/${chatId}`,
+        `${import.meta.env.VITE_API_URL}/messages/${sessionId}/${chatId}`,
         {
           credentials: "include",
           headers: getAuthHeaders(),
@@ -95,7 +95,7 @@ const AiChat = ({ loggedIn }) => {
 
     if (allImageUrls.length > 0) {
       try {
-        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
           method: "DELETE",
           credentials: "include",
           headers: {
@@ -112,14 +112,11 @@ const AiChat = ({ loggedIn }) => {
     // Delete from database
     if (sessionId) {
       try {
-        await fetch(
-          `https://poe2-ai-helper.onrender.com/messages/${sessionId}`,
-          {
-            method: "DELETE",
-            credentials: "include",
-            headers: getAuthHeaders(),
-          },
-        );
+        await fetch(`${import.meta.env.VITE_API_URL}/messages/${sessionId}`, {
+          method: "DELETE",
+          credentials: "include",
+          headers: getAuthHeaders(),
+        });
       } catch (error) {
         console.error("Failed to delete chats from database:", error);
       }
@@ -156,7 +153,7 @@ const AiChat = ({ loggedIn }) => {
 
     if (imageUrls.length > 0) {
       try {
-        await fetch("https://poe2-ai-helper.onrender.com/api/upload", {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
           method: "DELETE",
           credentials: "include",
           headers: {
@@ -175,7 +172,7 @@ const AiChat = ({ loggedIn }) => {
     if (sessionId) {
       try {
         await fetch(
-          `https://poe2-ai-helper.onrender.com/messages/${sessionId}/${chatId}`,
+          `${import.meta.env.VITE_API_URL}/messages/${sessionId}/${chatId}`,
           {
             method: "DELETE",
             credentials: "include",

@@ -6,8 +6,9 @@ import TitleScreen from "./pages/TitleScreen";
 import AiChat from "./pages/AiChat";
 import SkillTreeCanvas from "./pages/SkillTreeCanvas";
 import GlobalNavBar from "./layout/GlobalNavBar";
+import { getAuthHeaders } from "./auth/Auth";
 
-const LOCAL_KEY = "savedChats_v1";
+// const LOCAL_KEY = "savedChats_v1";
 const TOKEN_KEY = "authToken";
 
 let sessionId = localStorage.getItem("sessionId");
@@ -23,8 +24,8 @@ const App = () => {
 
   useEffect(() => {
     if (token) {
-      fetch("https://poe2-ai-helper.onrender.com/api/check", {
-        headers: { Authorization: `Bearer ${token}` },
+      fetch(`${import.meta.env.VITE_API_URL}/api/check`, {
+        headers: getAuthHeaders(),
       })
         .then((res) => res.json())
         .then((data) => {

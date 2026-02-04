@@ -60,7 +60,7 @@ const LoginForm = ({ loading, setLoading, onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const res = await fetch("https://poe2-ai-helper.onrender.com/login", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

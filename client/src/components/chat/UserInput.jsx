@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import ImageUpload from "./ImageUpload";
 import TextareaAutosize from "react-textarea-autosize";
+import { getAuthHeaders } from "../auth/Auth";
 
 const User = ({ initialMessages = [], onNewChat, chatId, classId }) => {
   const [prompt, setPrompt] = useState("");
@@ -40,12 +41,13 @@ const User = ({ initialMessages = [], onNewChat, chatId, classId }) => {
         images.forEach((file) => uploadFormData.append("images", file));
 
         const uploadRes = await fetch(
-          "https://poe2-ai-helper.onrender.com/api/upload",
+          `${import.meta.env.VITE_API_URL}/api/upload`,
           {
             method: "POST",
             credentials: "include",
             body: uploadFormData,
-          }
+            headers: getAuthHeaders(),
+          },
         );
 
         if (!uploadRes.ok) {
@@ -69,9 +71,12 @@ const User = ({ initialMessages = [], onNewChat, chatId, classId }) => {
 
       const sessionId = localStorage.getItem("sessionId");
       if (chatId && sessionId) {
-        await fetch("https://poe2-ai-helper.onrender.com/messages", {
+        await fetch(`${import.meta.env.VITE_API_URL}/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           credentials: "include",
           body: JSON.stringify({
             sessionId,
@@ -98,22 +103,20 @@ const User = ({ initialMessages = [], onNewChat, chatId, classId }) => {
             : msg.text,
       }));
 
-      const res = await fetch(
-        "https://poe2-ai-helper.onrender.com/api/generate",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            classId,
-            prompt: prompt,
-            history: JSON.stringify(conversationHistory),
-            imageUrls: imagesUploaded,
-          }),
-        }
-      );
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/generate`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          classId,
+          prompt: prompt,
+          history: JSON.stringify(conversationHistory),
+          imageUrls: imagesUploaded,
+        }),
+      });
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -129,9 +132,12 @@ const User = ({ initialMessages = [], onNewChat, chatId, classId }) => {
       setMessages((prev) => [...prev, aiMessage]);
 
       if (chatId && sessionId) {
-        await fetch("https://poe2-ai-helper.onrender.com/messages", {
+        await fetch(`${import.meta.env.VITE_API_URL}/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           credentials: "include",
           body: JSON.stringify({
             sessionId,

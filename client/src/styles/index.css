@@ -10,7 +10,7 @@ body::before {
 }
 
 body {
-  background-image: url("../assets/fire-wallpaper-3840x2160-vibrant-5k-288.jpg");
+  background-image: url("/assets/fire-wallpaper-3840x2160-vibrant-5k-288.jpg");
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
@@ -403,5 +403,9 @@ hr {
   .submitBtn {
     padding: 1px 5px;
     border: none;
+  }
+
+  .chatAiMainDiv {
+    height: 100dvh;
   }
 }
