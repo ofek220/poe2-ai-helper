@@ -75,8 +75,9 @@ body {
 
 .offcanvasBar {
   border-radius: 0 15px 15px 0;
-  background: rgb(111, 111, 111) !important;
+  background: #333366f2 !important;
   box-shadow: 8px 0 30px rgba(0, 0, 0, 0.3);
+  color: #ff9966;
 }
 
 .navbar {

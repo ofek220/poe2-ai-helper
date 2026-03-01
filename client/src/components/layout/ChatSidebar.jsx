@@ -17,7 +17,15 @@ function ChatSidebar({
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h5 className="mb-0">Chats</h5>
         <div className="d-flex">
-          <button className="btn btn-sm btn-primary" onClick={onNewChat}>
+          <button
+            className="btn btn-sm "
+            onClick={onNewChat}
+            style={{
+              color: "#ff9966",
+              backgroundColor: "#5353cf",
+              border: "1px solid #4747c1",
+            }}
+          >
             + New
           </button>
         </div>

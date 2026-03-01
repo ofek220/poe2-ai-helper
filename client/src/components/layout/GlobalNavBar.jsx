@@ -12,6 +12,10 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
     navigate("/skillTree");
   };
 
+  const ChatSkillTree = () => {
+    navigate("/ChatSkillTree");
+  };
+
   return (
     <nav className="navbar navbar-light bg-light mb-2 navbar-dark">
       <div className="container-fluid d-flex align-items-center justify-content-start">
@@ -23,7 +27,13 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
             data-bs-target="#chatSidebarMobile"
             aria-controls="chatSidebarMobile"
           >
-            <span className="navbar-toggler-icon"></span>
+            <span className="custom-toggler-wrapper">
+              <img
+                src={`${import.meta.env.BASE_URL}assets/aiIcon.png`}
+                alt="navbar chat toggle icon"
+                className="navbar-homeImgButton"
+              ></img>
+            </span>
           </button>
         )}
         <a
@@ -43,6 +53,13 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
           style={{ cursor: "pointer" }}
         >
           Skill Tree
+        </a>
+        <a
+          className="nav-link"
+          onClick={ChatSkillTree}
+          style={{ cursor: "pointer" }}
+        >
+          ChatSkillTree
         </a>
       </div>
     </nav>
