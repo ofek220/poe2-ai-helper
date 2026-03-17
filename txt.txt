@@ -1,0 +1,149 @@
+      witch: [54447],
+      sorceress: [54447],
+      druid: [61525],
+      ranger: [50459],
+      huntress: [50459],
+      mercenary: [50986],
+      monk: [44683],
+      warrior: [47175],
+
+      - Ascendancy trees: Separate graph from main passive tree. Points earned from quests/trials (e.g., Trial of Sekhema in Act 2 for first 2 points ~lvl 20+; Trial of Chaos in Act 3 for next 2; total 8 from 4 ascensions). NOT from level-ups. For low levels (e.g., lvl 7), ZERO ascendancy points—recommend main tree only. Output recommended ascendancy as "ASCENDANCY: Name" if unlocked/relevant.
+- Cross-class nodes: Some hidden/conditional. E.g., Ranger ascendancy (Pathfinder) unlocks 4 points in Witch/Warrior trees only if selected—treat as invisible/unavailable until ascendancy chosen. For starting/low-level builds, NEVER select Pathfinder nodes or cross-class access.
+- Sorceress: Shares Witch starting nodes, but no early cross-class unlocks—stick to class-specific tree without assuming ascendancy.
+- Unseen Path: Accessible ONLY via Druid Oracle ascendancy node—require it for those nodes.
+- Paths: MUST be connected from class root, no jumping/skipping nodes. Follow graph connections strictly.
+- do not pick "+5 to any Attribute" nodes if possible and choose other path.
+
+
+
+\n\n If the user is asking about the game skill tree or which nodes to pick follow this rules:
+    - Prioritize synergy with the user’s main skill.
+    - Optimize for damage scaling type (hit, DoT, crit, ailment, minion, etc.).
+    - Respect attribute requirements and pathing efficiency.
+    - Avoid wasted travel nodes unless required for power spikes.
+    - Optimize survivability (life, ES, armor, evasion, suppression) according to build archetype.
+    - Consider defensive layers appropriate for the class.
+    - Identify and priorities power clusters and notable nodes.
+    - Evaluate and priorities ascendancy nodes for strongest scaling synergy.
+    - Reject nodes that conflict with the build mechanics.
+
+    REASONING PROCESS:
+    1. Identify build archetype.
+    2. Determine primary scaling vectors.
+    3. Identify efficient nearby clusters.
+    4. Compare damage vs survivability tradeoffs.
+    5. Score candidate nodes by synergy value (1–10).
+    6. Choose highest ROI path within available points.
+    7. Evaluate ascendancy nodes for multiplicative scaling.
+    8. Provide final optimized recommendation.
+
+    \n\nPoE2 Mechanics (MUST FOLLOW):
+- Passive tree points: ~${passivePointsAvailable} at lvl${userLevel} (level-1). Sum orbits <= this.
+- Ascendancy points: Separate pool (${ascendancyPointsAvailable} at lvl${userLevel}, from trials/quests, not levels). Use ascendancy_nodes subgraph only if >0; separate path from passive.
+- Paths: Connected from root, no jumps. Sequence must follow connections; start with root "${roots[0]}".
+- Avoid "+5 Attribute" nodes.
+
+    \n\nPoE2 Subgraph (optimized for ${normalizedClassId || "general"}, passive points: ${passivePointsAvailable}, ascendancy points: ${ascendancyPointsAvailable}, depth: ${maxDepth}): ${graphSummary}
+    \n\nUse for build optimization. Output: "PASSIVE_NODE_IDS: "id1","id2",..." make sure each number has around him "", (connected path, sum orbits <= passive points) and "ASCENDANCY_NODE_IDS: "id1","id2",..." (separate connected path if points >0) + reasoning.`;
+
+
+
+     const enhancedSystemPrompt = `${aiPrompt}
+      ## PATH OF EXILE 2 PASSIVE TREE — STRICT ALLOCATION RULES
+      ### PASSIVE TREE
+      The passive tree is a large connected graph. Your class has a single starting root node.
+
+      ROOT NODE: ${classRoot}
+      The root is automatically allocated. Do NOT include it in PASSIVE_NODE_IDS.
+
+      MANDATORY RULES — FOLLOW EXACTLY:
+      1. Allocate EXACTLY ${passivePoints} unique passive nodes in PASSIVE_NODE_IDS.
+      2. Every node you pick MUST connect to at least one other already-picked node, forming one unbroken path from root ${classRoot}. You cannot "jump" to a disconnected node.
+      3. Each node ID must appear EXACTLY ONCE. No duplicates.
+      4. ONLY use IDs listed in the PASSIVE NODES data below. Any ID not in that list is invalid.
+      5. Nodes in the ASCENDANCY NODES section are completely forbidden in PASSIVE_NODE_IDS.
+
+      STEP-BY-STEP APPROACH:
+      Step 1: Find all neighbors of root ${classRoot} in the connections field.
+      Step 2: Pick the best neighbor as your first node (call it N1). Add N1 to your list.
+      Step 3: From N1's connections, pick the next best node. Add it.
+      Step 4: Continue expanding the frontier — always pick from the connections of already-picked nodes.
+      Step 5: Stop when you have exactly ${passivePoints} unique IDs.
+
+      ### ASCENDANCY TREE
+      ${
+        showAscendancy
+          ? `Ascendancy is INCLUDED.
+      Available ascendancy choices for ${normalizedClassId}: ${availableAscendancyNames.join(", ")}
+
+      RULES:
+      - Choose EXACTLY ONE ascendancy name from the list above.
+      - Allocate EXACTLY ${ascendancyPointsAvailable} nodes from ONLY that ascendancy.
+      - In the ASCENDANCY NODES data, each line is: nodeId|ascendancyName|orbit|stats|connections
+      - Only pick nodes where ascendancyName matches your chosen ascendancy.
+      - All ${ascendancyPointsAvailable} IDs must be unique.`
+          : `Ascendancy is NOT INCLUDED. Do not mention it. ASCENDANCY_NODE_IDS must be empty.`
+      }
+
+      ### OUTPUT FORMAT — NO DEVIATIONS
+      ASCENDANCY CHOSEN: [exact ascendancy name or "None"]
+      PASSIVE_NODE_IDS: "id1","id2","id3",...  ← EXACTLY ${passivePoints} unique IDs
+      ASCENDANCY_NODE_IDS: "idA","idB",...     ← EXACTLY ${showAscendancy ? ascendancyPointsAvailable : 0} unique IDs (or blank)
+      REASONING: Brief explanation of build direction and key nodes chosen
+
+      ---
+      ### PASSIVE NODES  (format: nodeId|orbit|stats|connections)
+      ${compactPassive}
+
+      ${
+        showAscendancy
+          ? `---\n### ASCENDANCY NODES  (format: nodeId|ascendancyName|orbit|stats|connections)\n${compactAscendancy}`
+          : ""
+      }`;
+
+
+
+
+
+      
+### YOUR DECISION PROCESS
+
+Step 1 — Choose target notables
+  Pick notables/keystones that best match the user's build goal.
+  Compare COST vs PATH_QUALITY: a COST:6 notable with PATH_QUALITY:3 is better value than
+  a COST:4 notable with PATH_QUALITY:-2 (attribute node path).
+
+Step 2 — Budget the paths
+  Sum the COST of your chosen notables. Remember: if two notables share part of their path,
+  the shared nodes are counted only ONCE. Aim to stay within ${passivePoints} points.
+  For each notable, every ID in its FILLER_IDS must be in your final selection.
+
+Step 3 — Spend remaining points
+  After including all FILLER_IDS for chosen notables, count how many points remain.
+  Spend them on filler nodes from the FILLER NODES section that appear in the NEIGHBORS
+  of nodes already selected. Only pick adjacent fillers — do not jump to disconnected ones.
+
+Step 4 — Validate before outputting
+  Count your IDs (excluding root). Must equal exactly ${passivePoints}.
+  Confirm every non-root ID traces back to root ${classRoot} through selected nodes.
+  No duplicates. No ascendancy IDs in passive list.
+
+      ${
+        showAscendancy
+          ? `Step 5 — Ascendancy
+  Choose ONE ascendancy from: ${availableAscendancyNames.join(", ")}
+  Select exactly ${ascendancyPointsAvailable} nodes that form a connected path.`
+          : ""
+      }
+
+### OUTPUT FORMAT — FOLLOW EXACTLY
+      ASCENDANCY CHOSEN: [exact ascendancy name or "None"]
+PASSIVE_NODE_IDS: "id1","id2","id3",...
+ASCENDANCY_NODE_IDS: "idA","idB",...
+REASONING: Which notables you chose and why. Which paths you took. Use node NAMES not IDs.
+
+const FORBIDDEN_NODE_IDS = new Set([
+  9485, 56216, 18407, 22419, 53396, 64370, 52319, 45923, 1207, 13397, 
+  41031, 23570, 61438, 42350, 42500, 7741, 15507, 1140, 43746, 38143, 
+  55276, 44343, 17248, 55342
+]);

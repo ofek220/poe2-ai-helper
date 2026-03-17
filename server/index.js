@@ -32,7 +32,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here"; // Add to .env
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // authentication middleware
 const requireAuth = (req, res, next) => {
@@ -41,7 +41,7 @@ const requireAuth = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // Optional: store user data if needed
+    req.user = decoded;
     next();
   } catch (err) {
     res.status(401).json({ error: "invalid token" });

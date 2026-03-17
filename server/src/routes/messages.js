@@ -71,7 +71,7 @@ router.get("/:sessionId", async (req, res) => {
          AND (class_id = $2 OR ($2 = 'general' AND class_id IS NULL)) 
          AND role != 'system'
          GROUP BY chat_id 
-         ORDER BY last_active DESC`,
+         ORDER BY last_active ASC`,
       [sessionId, classId],
     );
 

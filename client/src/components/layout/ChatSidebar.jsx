@@ -32,15 +32,18 @@ function ChatSidebar({
       </div>
 
       {/* Chat list */}
-      <div className="flex-grow-1  mb-3">
+      <div className="flex-grow-1  mb-3 chatListScroll">
         {savedChats.length > 0 ? (
           <ul className="nav flex-column">
             {savedChats.map((chat) => (
               <li key={chat.id} className="nav-item">
                 <button
-                  className={`nav-link w-100 text-start ${
+                  className={`nav-link text-start  ${
                     activeChat?.id === chat.id ? "active" : ""
                   }`}
+                  style={{
+                    width: "calc(100% - 7px)",
+                  }}
                   onClick={() => {
                     onLoadChat(chat.id);
                     if (onClose) onClose();

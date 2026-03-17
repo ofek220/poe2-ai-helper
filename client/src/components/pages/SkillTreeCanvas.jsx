@@ -476,7 +476,7 @@ const SkillTreeCanvas = () => {
         ctx.lineWidth = 5;
       } else if (isSelected) {
         ctx.strokeStyle = "#fbbf24";
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 50;
       } else if (isInPath) {
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 5;
@@ -566,14 +566,14 @@ const SkillTreeCanvas = () => {
   // handle class and ascendancy change
   const handleClassChange = (newClass) => {
     setSelectedClass(newClass);
-    setSelectedAscendancy("None");
-    setPath([]);
-    setSelectedNodes([]);
+    // setSelectedAscendancy("None");
+    // setPath([]);
+    // setSelectedNodes([]);
   };
   const handleAscendancyChange = (newAscendancy) => {
-    setSelectedAscendancy(newAscendancy);
-    setPath([]);
-    setSelectedNodes([]);
+    // setSelectedAscendancy(newAscendancy);
+    // setPath([]);
+    // setSelectedNodes([]);
   };
 
   // find the shortest path
@@ -1108,6 +1108,23 @@ const SkillTreeCanvas = () => {
                           ))}
                         </div>
                       )}
+                      {/* Debug Info */}
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          paddingTop: "8px",
+                          borderTop: "1px solid #333",
+                          fontSize: "0.75em",
+                          color: "#b7ff00",
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "5px",
+                        }}
+                      >
+                        <span>ID: {activeNode.hash}</span>
+                        <span>icon: {activeNode.icon}</span>
+                      </div>
+                      {/* debug info end */}
                     </>
                   );
                 })()}
