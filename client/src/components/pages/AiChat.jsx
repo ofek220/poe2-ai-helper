@@ -21,7 +21,6 @@ const AiChat = ({ loggedIn }) => {
   // load saved chats from server
   useEffect(() => {
     if (!loggedIn) return;
-
     if (!sessionId) return;
 
     fetch(
@@ -41,6 +40,7 @@ const AiChat = ({ loggedIn }) => {
             role: m.role,
             text: m.text ?? m.message,
             images: m.images || [],
+            buildData: m.buildData || null,
           })),
           lastActive: chat.last_active,
           classId: classId,

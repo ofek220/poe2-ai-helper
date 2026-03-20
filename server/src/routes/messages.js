@@ -6,15 +6,19 @@ const router = express.Router();
 // save chat messages to the database
 router.post("/", async (req, res) => {
   try {
-    const { sessionId, chatId, role, message, images, classId } = req.body;
+    const { sessionId, chatId, role, message, images, classId, buildData } =
+      req.body;
 
     if (role === "system") {
       return res.status(200).json({ success: true, skipped: true });
     }
 
+    const selectedNodes = buildData?.selectedNodes || null;
+    const ascendancy = buildData?.ascendancyChosen || null;
+
     const result = await pool.query(
-      `INSERT INTO chats (session_id, chat_id, role, message, images, class_id) 
-         VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO chats (session_id, chat_id, role, message, images, class_id, selected_nodes, ascendancy) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
       [
         sessionId,
@@ -23,6 +27,8 @@ router.post("/", async (req, res) => {
         message || "",
         JSON.stringify(images || []),
         classId,
+        selectedNodes ? JSON.stringify(selectedNodes) : null,
+        ascendancy,
       ],
     );
     res.status(200).json({ success: true, chat: result.rows[0] });
@@ -49,6 +55,16 @@ router.get("/:sessionId/:chatId", async (req, res) => {
       text: row.message,
       images:
         typeof row.images === "string" ? JSON.parse(row.images) : row.images,
+      buildData:
+        row.selected_nodes && row.ascendancy
+          ? {
+              selectedNodes:
+                typeof row.selected_nodes === "string"
+                  ? JSON.parse(row.selected_nodes)
+                  : row.selected_nodes,
+              ascendancyChosen: row.ascendancy,
+            }
+          : null,
     }));
 
     res.status(200).json(messages);
@@ -94,6 +110,16 @@ router.get("/:sessionId", async (req, res) => {
               typeof row.images === "string"
                 ? JSON.parse(row.images)
                 : row.images,
+            buildData:
+              row.selected_nodes && row.ascendancy
+                ? {
+                    selectedNodes:
+                      typeof row.selected_nodes === "string"
+                        ? JSON.parse(row.selected_nodes)
+                        : row.selected_nodes,
+                    ascendancyChosen: row.ascendancy,
+                  }
+                : null,
           })),
         };
       }),

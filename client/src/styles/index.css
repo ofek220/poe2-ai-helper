@@ -385,6 +385,17 @@ hr {
   margin-bottom: 5px;
 }
 
+.mobileTreeArrowToggle {
+  transition: transform 0.3s ease;
+  display: block;
+  stroke: #8b0000;
+  stroke-width: 0.5px;
+}
+
+[data-bs-toggle="collapse"]:not(.collapsed) .mobileTreeArrowToggle {
+  transform: rotate(180deg);
+}
+
 @media (max-width: 768px) {
   .title {
     font-size: 1.5rem;

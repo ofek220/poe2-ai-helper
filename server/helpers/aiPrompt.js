@@ -36,11 +36,108 @@ Determine:
 ## Mission
 Transform the user's current setup into a powerful, coherent build with clear reasoning for each recommendation. Focus on what to do and why it improves the character.`;
 
+// tree prompt
+export const generateTreePrompt = ({
+  passivePoints,
+  classRoot,
+  rootName,
+  showAscendancy,
+  ascendancyPointsAvailable,
+  availableAscendancyNames,
+  notablesData,
+  fillersData,
+  ascendancyData,
+}) => {
+  return `
+## PATH OF EXILE 2 PASSIVE TREE — ALLOCATION RULES
+
+ROOT NODE: ${classRoot} (${rootName}) — always included, does not count toward your budget.
+Point budget: ${passivePoints} + 3 passive points.
+
+### DATA FORMAT
+
+NOTABLES & KEYSTONES:
+  id|[TYPE]Name|stats|COST:N|PATH_QUALITY:N|FILLER_IDS:id,id,...
+
+  COST         = points needed to reach this node from root (path fillers + the notable itself)
+  PATH_QUALITY = quality score of the filler nodes on the path. HIGHER is better.
+  NEGATIVE = path goes through wasteful +5 attribute nodes. Prefer PATH_QUALITY >= 0.
+  FILLER_IDS   = IDs of the small nodes you must pass through — ALL must be included when you pick this notable
+
+FILLER NODES:
+  id|name|stats
+  Small nodes on notable paths. Required when their notable is selected.
+
+${
+  showAscendancy
+    ? `ASCENDANCY NODES:
+  id|name|stats|NEIGHBORS:id,id,...
+  All nodes in the ascendancy tree. Every node costs exactly 1 point (small, notable, keystone alike).
+  Read the stats and pick the best connected path of exactly ${ascendancyPointsAvailable} nodes.
+  Use NEIGHBORS (these are node IDs) to verify adjacency before selecting.`
+    : ""
+}
+
+### HOW TO BUILD THE PATH
+
+1. Understand the user's build goal — damage type, playstyle, defense layer.
+
+2. Scan NOTABLES & KEYSTONES. For each candidate notable, evaluate:
+   - Are the stats relevant to the build goal?
+   - What is the COST? Can you afford it within ${passivePoints} points?
+   - What is the PATH_QUALITY? Negative quality means wasted points on attribute nodes.
+   A good notable has high relevance AND reasonable COST AND PATH_QUALITY >= 0.
+
+3. Select your target notables. For each one, its FILLER_IDS are mandatory.
+   If two notables share path nodes, those shared nodes count only ONCE.
+   Running total (excl. root) must not exceed ${passivePoints}.
+
+4. After notables + fillers are locked in, if points remain, note that
+   the server will automatically fill remaining points with connected filler nodes.
+   You do not need to manually select extra fillers.
+
+5. Before writing output: count all IDs (excluding root) = exactly ${passivePoints}.
+  No duplicates. Every node must connect back to root through selected nodes.
+
+${
+  showAscendancy
+    ? `6. Ascendancy: choose ONE from ${availableAscendancyNames.join(", ")}.
+   Pick exactly ${ascendancyPointsAvailable} connected nodes from that ascendancy only.
+   Use NEIGHBORS (IDs) to trace a valid connected path. Include small bridge nodes between notables.`
+    : ""
+}
+
+### CRITICAL RULE: 7. NO FLOATING NODES
+Every ID you put in PASSIVE_NODE_IDS must form a single continuous line back to the ROOT. 
+If you pick a Notable, you MUST also list every ID found in its FILLER_IDS field. 
+Failure to include the filler IDs will result in a broken build.
+
+### OUTPUT — NO DEVIATIONS
+ASCENDANCY CHOSEN: [name or if none do NOT write about it at all].
+PASSIVE_NODE_IDS: "id1","id2","id3",...   <- EXACTLY ${passivePoints} unique IDs, root excluded.
+ASCENDANCY_NODE_IDS: "idA","idB",...      <- EXACTLY ${showAscendancy ? ascendancyPointsAvailable : 0} unique IDs (or blank).
+in a sperate paragraph explain your REASONING, Explain your build choices and path — use node NAMES not IDs.
+
+---
+### NOTABLES & KEYSTONES
+${notablesData}
+
+---
+### FILLER NODES
+${fillersData}
+${showAscendancy ? `\n---\n### ASCENDANCY NODES\n${ascendancyData}` : ""}
+`;
+};
+
 export const classPrompts = {
   general: ``,
   druid: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is DRUID.
+    - Available ascendancies:
+    1. Oracle
+    2. Shaman
+
     Focus Mechanics:
     - Shapeshifting Talismans: Can transform into Bear, Wolf, or Wyvern forms using Talismans, each with
     unique abilities .
@@ -67,6 +164,10 @@ export const classPrompts = {
   monk: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is MONK.
+    - Available ascendancies:
+    1. invoker
+    2. Acolyte of Chayula
+
     Focus Mechanics:
     - Staff & Unarmed combat: Uses Quarterstaves (caster/physical hybrid) and unarmed attacks,
     performing martial-arts strikes .
@@ -94,6 +195,11 @@ export const classPrompts = {
   warrior: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is WARRIOR.
+    - Available ascendancies:
+    1. Titan
+    2. Brute
+    3. Smith of Kitava
+
     Focus Mechanics:
     - Heavy melee combat: Specializes in two-handed Mace weapons, using slow Slam attacks and
     Warcries to deal massive burst damage .
@@ -126,6 +232,10 @@ export const classPrompts = {
   ranger: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is RANGER.
+    - Available ascendancies:
+    1. Deadeye
+    2. Pathfinder
+
     Focus Mechanics:
     - Bow and Arrow combat: Classic long-range archer using Bows; excels at firing volleys of elemental
     arrows (Fire, Cold, Lightning) or Poison arrows .
@@ -151,7 +261,12 @@ export const classPrompts = {
   mercenary: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is MERCENARY.
-        Focus Mechanics:
+    - Available ascendancies:
+    1. Tactician
+    2. Witchhunter
+    3. Gambling Legionnaire
+
+    Focus Mechanics:
     - Crossbow firearms: Wields up to two Crossbows, firing instant-projectile attacks (Rapid Shot, Power
     Shot, Burst Shot), akin to guns .
     - Ammo & attachments: Uses special Ammo skills (Incendiary, Permafrost, Piercing) to augment shots,
@@ -178,6 +293,10 @@ export const classPrompts = {
   huntress: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is HUNTRESS.
+    - Available ascendancies:
+    1. Amazon
+    2. Ritualist
+
     Focus Mechanics:
     - Spear weapons: A hybrid class wielding Spears that can be thrown or used in melee (new Spear skill
     gems) .
@@ -204,6 +323,11 @@ export const classPrompts = {
   sorceress: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is SORCERESS.
+    - Available ascendancies:
+    1. Stormweaver
+    2. Chronomancer
+    3. Disciple of Varashta
+
     Focus Mechanics:
     - Elemental spellcasting: Specializes in Fire, Cold, and Lightning magic (e.g. Fireball, Ice Nova,
     Lightning Warp) .
@@ -233,6 +357,12 @@ export const classPrompts = {
   witch: `
     ACTIVE CLASS CONTEXT (LOCKED):
     - The active class is WITCH.
+    - Available ascendancies:
+    1. Infernalist
+    2. Blood Mage
+    3. Lich
+    4. Abyssal Lich
+
     Focus Mechanics:
     - Necromancy & Chaos: Specializes in Chaos spells (poison, contagion, essence drain) and summoning
     undead minions (skeletal, zombie, spectres) using Spirit as a resource .

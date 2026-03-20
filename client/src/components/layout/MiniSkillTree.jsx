@@ -112,18 +112,24 @@ const OVERRIDES = {
 };
 Object.assign(NAME_TO_ID, OVERRIDES);
 
-const ChatSkillTree = () => {
+const MiniSkillTree = ({
+  selectedNodes: propSelectedNodes = [],
+  classId: propClassId,
+  selectedAscendancy: propSelectedAscendancy = "None",
+}) => {
   const canvasRef = useRef(null);
   const iconCacheRef = useRef({});
 
   const [graph, setGraph] = useState({});
   const [nodeIndex, setNodeIndex] = useState({});
   const [path, setPath] = useState([]);
-  const [selectedNodes, setSelectedNodes] = useState([]);
+
+  // *** CHANGED: Use props instead of state for these ***
+  const selectedNodes = propSelectedNodes.map(String); // Convert to strings
+  const selectedClass = propClassId || "None";
+  const selectedAscendancy = propSelectedAscendancy;
 
   const [hoveredNode, setHoveredNode] = useState(null);
-  const [selectedClass, setSelectedClass] = useState("None");
-  const [selectedAscendancy, setSelectedAscendancy] = useState("None");
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [imagesLoaded, setImagesLoaded] = useState(0);
   // Pan and zoom state
@@ -504,6 +510,8 @@ const ChatSkillTree = () => {
     pan,
     visibleNodes,
     imagesLoaded,
+    selectedClass,
+    selectedAscendancy,
   ]);
 
   // icons Loading Logic
@@ -526,10 +534,6 @@ const ChatSkillTree = () => {
         img.__loaded = true;
         setImagesLoaded((prev) => prev + 1);
       };
-
-      // img.onerror = () => {
-      //   console.error(`Failed to load: ${img.src}`);
-      // };
 
       img.src = key.startsWith("/")
         ? `${import.meta.env.BASE_URL}assets${key}`
@@ -617,6 +621,7 @@ const ChatSkillTree = () => {
     isPanningRef.current = false;
     canvasRef.current.style.cursor = "grab";
   };
+
   const handleMouseMove = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -803,7 +808,10 @@ const ChatSkillTree = () => {
       const touch = e.changedTouches[0];
       const clickedHash = getNodeAtPosition(touch.clientX, touch.clientY);
       if (clickedHash) {
-        handleNodeClick(clickedHash);
+        setMousePos({ x: touch.clientX, y: touch.clientY });
+        setHoveredNode(clickedHash);
+        hasMovedRef.current = false;
+        return;
       }
     }
 
@@ -812,136 +820,127 @@ const ChatSkillTree = () => {
   };
 
   return (
-    <div className="topCanvasDiv" ref={canvasBoundaryRef}>
-      <div className="canvasWrapper">
-        {/* CANVAS */}
-        <canvas
-          ref={canvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={() => {
-            isPanningRef.current = false;
-            setHoveredNode(null);
-          }}
-          onClick={(e) => {
-            const clickedHash = getNodeAtPosition(e.clientX, e.clientY);
-            if (clickedHash) {
-              handleNodeClick(clickedHash);
-            }
-          }}
-          style={{
-            display: "block",
-            cursor: "grab",
-            width: "100%",
-            height: "100%",
-          }}
-        />
+    <div
+      className="topCanvasDiv"
+      ref={canvasBoundaryRef}
+      style={{
+        width: isMobile ? "80%" : "90%",
+        height: "300px",
+        position: "relative",
+        background: "#111",
+        borderRadius: "8px",
+        overflow: "hidden",
+        borderRadius: "24px",
+      }}
+    >
+      {/* CANVAS */}
+      <canvas
+        ref={canvasRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={() => {
+          isPanningRef.current = false;
+          setHoveredNode(null);
+        }}
+        onClick={(e) => {
+          const clickedHash = getNodeAtPosition(e.clientX, e.clientY);
+          if (clickedHash) {
+            handleNodeClick(clickedHash);
+          }
+        }}
+        style={{
+          display: "block",
+          cursor: "grab",
+          width: "100%",
+          height: "100%",
+        }}
+      />
 
-        {/* CONTROLS INFO */}
-        <div className="controlInfo">
-          <div style={{ color: "#fbbf24", fontWeight: "bold" }}>
-            Points: {regularPointsSpent}
-          </div>
-          <div
-            style={{ marginTop: "5px", color: "#fbbf24", fontWeight: "bold" }}
-          >
-            Ascendancy Points: {ascendancyPointsSpent}
-          </div>
+      {/* CONTROLS INFO */}
+      <div className="controlInfo">
+        <div style={{ color: "#fbbf24", fontWeight: "bold" }}>
+          Points: {regularPointsSpent}
         </div>
-
-        {/* TOOLTIP */}
-        {hoveredNode &&
-          nodeIndex[hoveredNode] &&
-          (() => {
-            const containerRect =
-              canvasBoundaryRef.current?.getBoundingClientRect();
-            const tooltipLeft = isMobile
-              ? mousePos.x - (containerRect?.left ?? 0) + 15
-              : pan.x + nodeIndex[hoveredNode].x * scale + 20;
-            const tooltipTop = isMobile
-              ? mousePos.y - (containerRect?.top ?? 0) - 60
-              : pan.y + nodeIndex[hoveredNode].y * scale + 20;
-
-            return (
-              <div
-                className="tooltipContainer"
-                style={{
-                  left: `${tooltipLeft}px`,
-                  top: `${tooltipTop}px`,
-                }}
-              >
-                {(() => {
-                  const activeNode = hoveredNode
-                    ? visibleNodes.list.find(
-                        (n) => String(n.hash) === String(hoveredNode),
-                      )
-                    : null;
-
-                  if (!activeNode) return null;
-
-                  return (
-                    <>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <strong
-                          style={{
-                            fontSize: "1.2em",
-                            color: activeNode.isKeystone
-                              ? "#dc2626"
-                              : activeNode.isNotable
-                                ? "#3b82f6"
-                                : "#e2e8f0",
-                          }}
-                        >
-                          {activeNode.name}
-                        </strong>
-                      </div>
-
-                      {activeNode.stats && activeNode.stats.length > 0 && (
-                        <div style={{ fontSize: "0.95em", lineHeight: "1.4" }}>
-                          {activeNode.stats.map((stat, i) => (
-                            <div
-                              key={i}
-                              style={{ color: "#93c5fd", marginBottom: "2px" }}
-                            >
-                              {stat}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {/* Debug Info */}
-                      <div
-                        style={{
-                          marginTop: "12px",
-                          paddingTop: "8px",
-                          borderTop: "1px solid #333",
-                          fontSize: "0.75em",
-                          color: "#b7ff00",
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr",
-                          gap: "5px",
-                        }}
-                      >
-                        <span>ID: {activeNode.hash}</span>
-                        <span>icon: {activeNode.icon}</span>
-                      </div>
-                      {/* debug info end */}
-                    </>
-                  );
-                })()}
-              </div>
-            );
-          })()}
+        <div style={{ marginTop: "5px", color: "#fbbf24", fontWeight: "bold" }}>
+          Ascendancy Points: {ascendancyPointsSpent}
+        </div>
       </div>
+
+      {/* TOOLTIP */}
+      {hoveredNode &&
+        nodeIndex[hoveredNode] &&
+        (() => {
+          const containerRect =
+            canvasBoundaryRef.current?.getBoundingClientRect();
+          const tooltipLeft = isMobile
+            ? mousePos.x - (containerRect?.left ?? 0) + 15
+            : pan.x + nodeIndex[hoveredNode].x * scale + 20;
+          const tooltipTop = isMobile
+            ? mousePos.y - (containerRect?.top ?? 0) - 60
+            : pan.y + nodeIndex[hoveredNode].y * scale + 20;
+
+          return (
+            <div
+              className="tooltipContainer"
+              style={{
+                left: `${tooltipLeft}px`,
+                top: `${tooltipTop}px`,
+              }}
+            >
+              {(() => {
+                const activeNode = hoveredNode
+                  ? visibleNodes.list.find(
+                      (n) => String(n.hash) === String(hoveredNode),
+                    )
+                  : null;
+
+                if (!activeNode) return null;
+
+                return (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          fontSize: "1.2em",
+                          color: activeNode.isKeystone
+                            ? "#dc2626"
+                            : activeNode.isNotable
+                              ? "#3b82f6"
+                              : "#e2e8f0",
+                        }}
+                      >
+                        {activeNode.name}
+                      </strong>
+                    </div>
+
+                    {activeNode.stats && activeNode.stats.length > 0 && (
+                      <div style={{ fontSize: "0.95em", lineHeight: "1.4" }}>
+                        {activeNode.stats.map((stat, i) => (
+                          <div
+                            key={i}
+                            style={{ color: "#93c5fd", marginBottom: "2px" }}
+                          >
+                            {stat}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          );
+        })()}
     </div>
   );
 };
 
-export default ChatSkillTree;
+export default MiniSkillTree;

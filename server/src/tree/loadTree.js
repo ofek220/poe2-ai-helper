@@ -9,4 +9,3 @@ export const treeData = JSON.parse(raw);
 console.log("POE2 Tree Loaded!");
 console.log("Groups:", treeData.groups.length);
 console.log("Passives:", Object.keys(treeData.passives).length);
-console.log("notable nodes");

@@ -7,7 +7,7 @@ import AiChat from "./pages/AiChat";
 import SkillTreeCanvas from "./pages/SkillTreeCanvas";
 import GlobalNavBar from "./layout/GlobalNavBar";
 import { getAuthHeaders } from "./auth/Auth";
-import ChatSkillTree from "./layout/ChatSkillTree";
+import MiniSkillTree from "./layout/MiniSkillTree";
 
 // const LOCAL_KEY = "savedChats_v1";
 const TOKEN_KEY = "authToken";
@@ -77,7 +77,6 @@ const App = () => {
       <Route element={<Layout />}>
         <Route path="/" element={<TitleScreen />} />
         <Route path="/skillTree" element={<SkillTreeCanvas />} />
-        <Route path="/ChatSkillTree" element={<ChatSkillTree />} />
       </Route>
 
       <Route path="/chat/:classId" element={<AiChat loggedIn={loggedIn} />} />

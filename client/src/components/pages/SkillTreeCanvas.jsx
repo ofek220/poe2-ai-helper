@@ -476,7 +476,7 @@ const SkillTreeCanvas = () => {
         ctx.lineWidth = 5;
       } else if (isSelected) {
         ctx.strokeStyle = "#fbbf24";
-        ctx.lineWidth = 50;
+        ctx.lineWidth = 5;
       } else if (isInPath) {
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 5;
@@ -621,10 +621,6 @@ const SkillTreeCanvas = () => {
         setImagesLoaded((prev) => prev + 1);
       };
 
-      // img.onerror = () => {
-      //   console.error(`Failed to load: ${img.src}`);
-      // };
-
       img.src = key.startsWith("/")
         ? `${import.meta.env.BASE_URL}assets${key}`
         : key;
@@ -711,6 +707,7 @@ const SkillTreeCanvas = () => {
     isPanningRef.current = false;
     canvasRef.current.style.cursor = "grab";
   };
+
   const handleMouseMove = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -898,6 +895,9 @@ const SkillTreeCanvas = () => {
       const clickedHash = getNodeAtPosition(touch.clientX, touch.clientY);
       if (clickedHash) {
         handleNodeClick(clickedHash);
+        setHoveredNode(clickedHash);
+        hasMovedRef.current = false;
+        return;
       }
     }
 
@@ -1109,7 +1109,7 @@ const SkillTreeCanvas = () => {
                         </div>
                       )}
                       {/* Debug Info */}
-                      <div
+                      {/* <div
                         style={{
                           marginTop: "12px",
                           paddingTop: "8px",
@@ -1123,7 +1123,7 @@ const SkillTreeCanvas = () => {
                       >
                         <span>ID: {activeNode.hash}</span>
                         <span>icon: {activeNode.icon}</span>
-                      </div>
+                      </div> */}
                       {/* debug info end */}
                     </>
                   );

@@ -12,10 +12,6 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
     navigate("/skillTree");
   };
 
-  const ChatSkillTree = () => {
-    navigate("/ChatSkillTree");
-  };
-
   return (
     <nav className="navbar navbar-light bg-light mb-2 navbar-dark">
       <div className="container-fluid d-flex align-items-center justify-content-start">
@@ -53,13 +49,6 @@ const GlobalNavBar = ({ showChatHamburger = false, onToggleChatSidebar }) => {
           style={{ cursor: "pointer" }}
         >
           Skill Tree
-        </a>
-        <a
-          className="nav-link"
-          onClick={ChatSkillTree}
-          style={{ cursor: "pointer" }}
-        >
-          ChatSkillTree
         </a>
       </div>
     </nav>

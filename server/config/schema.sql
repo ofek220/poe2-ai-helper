@@ -7,5 +7,7 @@ CREATE TABLE IF NOT EXISTS chats (
   message TEXT,
   images JSONB DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT now(),
-  class varchar NOT NULL
+  class_id varchar NOT NULL
+  ascendancy VARCHAR DEFAULT NULL;
+  selected_nodes JSONB DEFAULT NULL,
 );

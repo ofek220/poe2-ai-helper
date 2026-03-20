@@ -1,6 +1,10 @@
 import express from "express";
 import fs from "fs";
-import { aiPrompt, classPrompts } from "../../helpers/aiPrompt.js";
+import {
+  aiPrompt,
+  classPrompts,
+  generateTreePrompt,
+} from "../../helpers/aiPrompt.js";
 import imgPrompt from "../../helpers/imgPrompt.js";
 import { getOpenAIClient } from "../../utils/openai.js";
 import { buildGraph } from "../tree/buildGraph.js";
@@ -106,7 +110,7 @@ const buildPathMap = (graph, root) => {
     }
   }
 
-  // Full ID chain from root → nodeId
+  // Full ID chain from root to nodeId
   const getPathIds = (nodeId) => {
     const chain = [];
     let cur = Number(nodeId);
@@ -340,12 +344,11 @@ const repairAndTrimPath = (
 // Route
 router.post("/", async (req, res) => {
   const openai = getOpenAIClient();
-  const { prompt, history, imageUrls, classId } = req.body;
+  const { prompt, history, imageUrls, classId, treeToggleButton } = req.body;
   const userPrompt = prompt;
   const normalizedClassId = classId?.toUpperCase();
 
   try {
-    // Context Gathering
     let conversationHistory = history ? JSON.parse(history) : [];
 
     const query = encodeURIComponent(userPrompt);
@@ -357,219 +360,170 @@ router.post("/", async (req, res) => {
       .map((i) => `Title: ${i.title}\nSnippet: ${i.snippet}`)
       .join("\n\n");
 
-    // Point budget
-    const userLevelMatch = userPrompt.match(/(?:level|points)\s?(\d+)/i);
-    const userLevel = userLevelMatch ? parseInt(userLevelMatch[1], 10) : 1;
-    const passivePoints = Math.max(0, userLevel - 1);
-    const ascendancyPointsAvailable = 9;
+    let enhancedSystemPrompt = aiPrompt;
 
-    // PASSIVE tree Subgraph
-    const roots =
-      classRootMap[normalizedClassId.toLowerCase()] || skillTreeData.roots;
-    const classRoot = roots[0];
+    let passivePoints = 0;
+    let ascendancyPointsAvailable = 9;
+    let validPassiveIds = new Set();
+    let validAscendancyIds = new Set();
+    let pathMap = null;
+    let classRoot = null;
 
-    const passiveSubgraph = getClassSubgraph(
-      graph,
-      nodeIndex,
-      roots,
-      passivePoints + 10,
-      500,
-      (id) => {
-        const node = nodeIndex[id];
-        if (!node) return false;
-        if (FORBIDDEN_NODE_IDS.has(Number(id))) return false;
-        if (ascendancyNodeIdSet.has(Number(id))) return false;
-        if (
-          String(id).includes("cross_class") &&
-          normalizedClassId !== "RANGER"
-        ) {
-          return false;
-        }
-        return true;
-      },
-    );
+    if (treeToggleButton) {
+      // Point budget
+      const userLevelMatch = userPrompt.match(/(?:level|points)\s?(\d+)/i);
+      const userLevel = userLevelMatch ? parseInt(userLevelMatch[1], 10) : 50;
+      passivePoints = Math.max(0, userLevel - 1);
 
-    const validPassiveIds = new Set(Object.keys(passiveSubgraph));
-    const pathMap = buildPathMap(graph, classRoot);
+      // PASSIVE tree Subgraph
+      const roots =
+        classRootMap[normalizedClassId.toLowerCase()] || skillTreeData.roots;
+      classRoot = roots[0];
 
-    // ASCENDANCY tree Subgraph
-    let ascendancySubgraph = {};
-    let showAscendancy = false;
-    let availableAscendancyNames = [];
-    const lowerCPrompt = userPrompt.toLowerCase();
-    const ascendancyTriggers = [
-      "ascend",
-      "ascendancy",
-      "ascension",
-      "lab",
-      "labyrinth",
-      "trial",
-      "trials",
-      "sekhema",
-      "chaos",
-      "eternal",
-      "lab run",
-      "ascend class",
-      "unlock ascend",
-      "my ascendancy",
-      "best ascend",
-      "which ascend",
-      "ascend tree",
-      "ascend path",
-      "endgame",
-      "late game",
-      "full build",
-      "max build",
-      "optimized build",
-      "build guide",
-      "build planner",
-      "passive + ascend",
-      "tree",
-      "asc tree",
-      "asc path",
-    ];
-
-    if (userLevel >= 20) showAscendancy = true;
-    if (ascendancyTriggers.some((t) => lowerCPrompt.includes(t)))
-      showAscendancy = true;
-    if (
-      lowerCPrompt.includes("only passive") ||
-      lowerCPrompt.includes("no ascendancy") ||
-      lowerCPrompt.includes("no lab") ||
-      lowerCPrompt.includes("ignore ascend") ||
-      lowerCPrompt.includes("no tree")
-    ) {
-      showAscendancy = false;
-    }
-
-    if (showAscendancy) {
-      const ascRoots = Object.values(nodeIndex)
-        .filter(
-          (n) =>
-            n.isAscendancyStart &&
-            n.ascendancy &&
-            ASCENDANCY_MAP[n.ascendancy] === normalizedClassId,
-        )
-        .map((n) => n.id);
-
-      availableAscendancyNames = [
-        ...new Set(
-          Object.values(nodeIndex)
-            .filter(
-              (n) =>
-                n.ascendancy &&
-                ASCENDANCY_MAP[n.ascendancy] === normalizedClassId,
-            )
-            .map((n) => n.ascendancy),
-        ),
-      ];
-
-      ascendancySubgraph = getClassSubgraph(
+      const passiveSubgraph = getClassSubgraph(
         graph,
         nodeIndex,
-        ascRoots,
-        12,
-        150,
-        (nodeId) => {
-          const node = nodeIndex[nodeId];
-          if (!node || !node.ascendancy) return false;
-          return ASCENDANCY_MAP[node.ascendancy] === normalizedClassId;
+        roots,
+        passivePoints + 10,
+        500,
+        (id) => {
+          const node = nodeIndex[id];
+          if (!node) return false;
+          if (FORBIDDEN_NODE_IDS.has(Number(id))) return false;
+          if (ascendancyNodeIdSet.has(Number(id))) return false;
+          if (
+            String(id).includes("cross_class") &&
+            normalizedClassId !== "RANGER"
+          ) {
+            return false;
+          }
+          return true;
         },
       );
-    }
 
-    const validAscendancyIds = new Set(Object.keys(ascendancySubgraph));
+      validPassiveIds = new Set(Object.keys(passiveSubgraph));
+      pathMap = buildPathMap(graph, classRoot);
 
-    const notablesData = serializeNotablesForAI(passiveSubgraph, pathMap);
-    const fillersData = serializePassiveFillersForAI(passiveSubgraph, pathMap);
-    const ascendancyData = serializeAscendancyForAI(ascendancySubgraph);
-    const rootName = nodeIndex[classRoot]?.name || "Class Start";
+      // ASCENDANCY tree Subgraph
+      let ascendancySubgraph = {};
+      let showAscendancy = false;
+      let availableAscendancyNames = [];
+      const lowerCPrompt = userPrompt.toLowerCase();
+      const ascendancyTriggers = [
+        "ascend",
+        "ascendancy",
+        "ascension",
+        "lab",
+        "labyrinth",
+        "trial",
+        "trials",
+        "sekhema",
+        "chaos",
+        "eternal",
+        "lab run",
+        "ascend class",
+        "unlock ascend",
+        "my ascendancy",
+        "best ascend",
+        "which ascend",
+        "ascend tree",
+        "ascend path",
+        "endgame",
+        "late game",
+        "full build",
+        "max build",
+        "optimized build",
+        "build guide",
+        "build planner",
+        "passive + ascend",
+        "tree",
+        "asc tree",
+        "asc path",
+      ];
 
-    const enhancedSystemPrompt = `${aiPrompt}
-## PATH OF EXILE 2 PASSIVE TREE — ALLOCATION RULES
-
-ROOT NODE: ${classRoot} (${rootName}) — always included, does not count toward your budget.
-Point budget: ${passivePoints} + 3 passive points.
-
-### DATA FORMAT
-
-NOTABLES & KEYSTONES:
-  id|[TYPE]Name|stats|COST:N|PATH_QUALITY:N|FILLER_IDS:id,id,...
-
-  COST         = points needed to reach this node from root (path fillers + the notable itself)
-  PATH_QUALITY = quality score of the filler nodes on the path. HIGHER is better.
-  NEGATIVE = path goes through wasteful +5 attribute nodes. Prefer PATH_QUALITY >= 0.
-  FILLER_IDS   = IDs of the small nodes you must pass through — ALL must be included when you pick this notable
-
-FILLER NODES:
-  id|name|stats
-  Small nodes on notable paths. Required when their notable is selected.
-
-${
-  showAscendancy
-    ? `ASCENDANCY NODES:
-  id|name|stats|NEIGHBORS:id,id,...
-  All nodes in the ascendancy tree. Every node costs exactly 1 point (small, notable, keystone alike).
-  Read the stats and pick the best connected path of exactly ${ascendancyPointsAvailable} nodes.
-  Use NEIGHBORS (these are node IDs) to verify adjacency before selecting.`
-    : ""
-}
-
-### HOW TO BUILD THE PATH
-
-1. Understand the user's build goal — damage type, playstyle, defense layer.
-
-2. Scan NOTABLES & KEYSTONES. For each candidate notable, evaluate:
-   - Are the stats relevant to the build goal?
-   - What is the COST? Can you afford it within ${passivePoints} points?
-   - What is the PATH_QUALITY? Negative quality means wasted points on attribute nodes.
-   A good notable has high relevance AND reasonable COST AND PATH_QUALITY >= 0.
-
-3. Select your target notables. For each one, its FILLER_IDS are mandatory.
-   If two notables share path nodes, those shared nodes count only ONCE.
-   Running total (excl. root) must not exceed ${passivePoints}.
-
-4. After notables + fillers are locked in, if points remain, note that
-   the server will automatically fill remaining points with connected filler nodes.
-   You do not need to manually select extra fillers.
-
-5. Before writing output: count all IDs (excluding root) = exactly ${passivePoints}.
-  No duplicates. Every node must connect back to root through selected nodes.
-  
-### CRITICAL RULE: NO FLOATING NODES
-Every ID you put in PASSIVE_NODE_IDS must form a single continuous line back to the ROOT. 
-If you pick a Notable, you MUST also list every ID found in its FILLER_IDS field. 
-Failure to include the filler IDs will result in a broken build.
-      ${
-        showAscendancy
-          ? `6. Ascendancy: choose ONE from ${availableAscendancyNames.join(", ")}.
-   Pick exactly ${ascendancyPointsAvailable} connected nodes from that ascendancy only.
-   Use NEIGHBORS (IDs) to trace a valid connected path. Include small bridge nodes between notables.`
-          : ""
+      if (userLevel >= 20) showAscendancy = true;
+      if (ascendancyTriggers.some((t) => lowerCPrompt.includes(t)))
+        showAscendancy = true;
+      if (
+        lowerCPrompt.includes("only passive") ||
+        lowerCPrompt.includes("no ascendancy") ||
+        lowerCPrompt.includes("no lab") ||
+        lowerCPrompt.includes("ignore ascend") ||
+        lowerCPrompt.includes("no tree")
+      ) {
+        showAscendancy = false;
       }
 
-### OUTPUT — NO DEVIATIONS
-      ASCENDANCY CHOSEN: [name or if none do NOT write about it at all]
-PASSIVE_NODE_IDS: "id1","id2","id3",...   <- EXACTLY ${passivePoints} unique IDs, root excluded
-ASCENDANCY_NODE_IDS: "idA","idB",...      <- EXACTLY ${showAscendancy ? ascendancyPointsAvailable : 0} unique IDs (or blank)
-in a sperate paragraph explain your REASONING, Explain your build choices and path — use node NAMES not IDs.
+      if (showAscendancy) {
+        const ascRoots = Object.values(nodeIndex)
+          .filter(
+            (n) =>
+              n.isAscendancyStart &&
+              n.ascendancy &&
+              ASCENDANCY_MAP[n.ascendancy] === normalizedClassId,
+          )
+          .map((n) => n.id);
 
----
-### NOTABLES & KEYSTONES
-${notablesData}
+        availableAscendancyNames = [
+          ...new Set(
+            Object.values(nodeIndex)
+              .filter(
+                (n) =>
+                  n.ascendancy &&
+                  ASCENDANCY_MAP[n.ascendancy] === normalizedClassId,
+              )
+              .map((n) => n.ascendancy),
+          ),
+        ];
 
-      ---
-### FILLER NODES
-${fillersData}
-${showAscendancy ? `\n---\n### ASCENDANCY NODES\n${ascendancyData}` : ""}`;
+        ascendancySubgraph = getClassSubgraph(
+          graph,
+          nodeIndex,
+          ascRoots,
+          12,
+          150,
+          (nodeId) => {
+            const node = nodeIndex[nodeId];
+            if (!node || !node.ascendancy) return false;
+            return ASCENDANCY_MAP[node.ascendancy] === normalizedClassId;
+          },
+        );
+      }
+
+      validAscendancyIds = new Set(Object.keys(ascendancySubgraph));
+
+      const notablesData = serializeNotablesForAI(passiveSubgraph, pathMap);
+      const fillersData = serializePassiveFillersForAI(
+        passiveSubgraph,
+        pathMap,
+      );
+      const ascendancyData = serializeAscendancyForAI(ascendancySubgraph);
+      const rootName = nodeIndex[classRoot]?.name || "Class Start";
+
+      const treePrompt = generateTreePrompt({
+        passivePoints,
+        classRoot,
+        rootName,
+        showAscendancy,
+        ascendancyPointsAvailable,
+        availableAscendancyNames,
+        notablesData,
+        fillersData,
+        ascendancyData,
+      });
+
+      enhancedSystemPrompt += "\n\n" + treePrompt;
+    }
+
+    // Add class-specific prompt
+    enhancedSystemPrompt += "\n\n" + (classPrompts[classId] || "");
 
     const response = await openai.chat.completions.create({
       model: "gpt-4.1-2025-04-14",
       messages: [
         {
           role: "system",
-          content:
-            enhancedSystemPrompt + "\n\n" + (classPrompts[classId] || ""),
+          content: enhancedSystemPrompt,
         },
         ...conversationHistory,
         {
@@ -599,72 +553,108 @@ ${showAscendancy ? `\n---\n### ASCENDANCY NODES\n${ascendancyData}` : ""}`;
         "❌ No response content received. finish_reason:",
         finishReason,
       );
-      console.error("Full choice object:", JSON.stringify(choice, null, 2));
       return res.status(500).json({
-        error:
-          "The AI returned an empty response. This usually means the output was cut off (max_completion_tokens too low) or the model refused the request.",
+        error: "The AI returned an empty response.",
         finish_reason: finishReason ?? "unknown",
       });
     }
 
-    // Parse passive IDs
-    const passiveMatch = content.match(/PASSIVE_NODE_IDS:\s*([\d",\s]+)/);
-    const parsedPassiveIds = passiveMatch
-      ? passiveMatch[1]
-          .replace(/"/g, "")
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean)
-      : [];
+    // parse tree data if button is on
+    let passiveNodeIds = [];
+    let ascendancyNodeIdsResult = [];
+    let ascendancyChosen = "None";
 
-    // Deduplicate, exclude non-passive IDs, cap at passivePoints
-    const seenPassive = new Set();
-    const cleanedPassiveIds = parsedPassiveIds.filter((id) => {
-      if (!id) return false;
-      if (!validPassiveIds.has(id)) return false;
-      if (ascendancyNodeIdSet.has(Number(id))) return false;
-      if (seenPassive.has(id)) return false;
-      seenPassive.add(id);
-      return true;
-    });
+    if (treeToggleButton) {
+      // Parse passive IDs
+      const passiveMatch = content.match(/PASSIVE_NODE_IDS:\s*([\d",\s]+)/);
+      const parsedPassiveIds = passiveMatch
+        ? passiveMatch[1]
+            .replace(/"/g, "")
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean)
+        : [];
 
-    const repairedIds = repairAndTrimPath(
-      cleanedPassiveIds,
-      pathMap,
-      validPassiveIds,
-      classRoot,
-      passivePoints,
-    );
-
-    const passiveNodeIds = repairedIds
-      .filter((id) => String(id) !== String(classRoot))
-      .slice(0, passivePoints);
-
-    const ascendancyMatch = content.match(/ASCENDANCY_NODE_IDS:\s*([\d",\s]*)/);
-    const parsedAscendancyIds = ascendancyMatch
-      ? ascendancyMatch[1]
-          .replace(/"/g, "")
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean)
-      : [];
-
-    // Deduplicate, hard-filter to valid ascendancy IDs, cap at 9 (8 nodes + 1 ascendancy root node)
-    const seenAsc = new Set();
-    const ascendancyNodeIdsResult = parsedAscendancyIds
-      .filter((id) => {
+      // Deduplicate, exclude non-passive IDs, cap at passivePoints
+      const seenPassive = new Set();
+      const cleanedPassiveIds = parsedPassiveIds.filter((id) => {
         if (!id) return false;
-        if (!validAscendancyIds.has(id)) return false;
-        if (seenAsc.has(id)) return false;
-        seenAsc.add(id);
+        if (!validPassiveIds.has(id)) return false;
+        if (ascendancyNodeIdSet.has(Number(id))) return false;
+        if (seenPassive.has(id)) return false;
+        seenPassive.add(id);
         return true;
-      })
-      .slice(0, ascendancyPointsAvailable);
+      });
+
+      const repairedIds = repairAndTrimPath(
+        cleanedPassiveIds,
+        pathMap,
+        validPassiveIds,
+        classRoot,
+        passivePoints,
+      );
+
+      passiveNodeIds = repairedIds
+        .filter((id) => String(id) !== String(classRoot))
+        .slice(0, passivePoints);
+
+      // Parse ascendancy IDs
+      const ascendancyMatch = content.match(
+        /ASCENDANCY_NODE_IDS:\s*([\d",\s]*)/,
+      );
+      const parsedAscendancyIds = ascendancyMatch
+        ? ascendancyMatch[1]
+            .replace(/"/g, "")
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean)
+        : [];
+
+      // Deduplicate, hard-filter to valid ascendancy IDs, cap at 9 (8 nodes + 1 ascendancy root node)
+      const seenAsc = new Set();
+      ascendancyNodeIdsResult = parsedAscendancyIds
+        .filter((id) => {
+          if (!id) return false;
+          if (!validAscendancyIds.has(id)) return false;
+          if (seenAsc.has(id)) return false;
+          seenAsc.add(id);
+          return true;
+        })
+        .slice(0, ascendancyPointsAvailable);
+
+      // Extract ascendancy name
+      const ascendancyChosenMatch = content.match(
+        /ASCENDANCY CHOSEN:\s*([^\n.]+)/i,
+      );
+      if (ascendancyChosenMatch) {
+        ascendancyChosen = ascendancyChosenMatch[1].trim();
+        if (
+          ascendancyChosen.toLowerCase() === "none" ||
+          ascendancyChosen === ""
+        ) {
+          ascendancyChosen = "None";
+        }
+      }
+    }
+
+    // remove all technical lines
+    let cleanedResponse = content
+      .replace(/ASCENDANCY CHOSEN:.*$/im, "")
+      .replace(/PASSIVE_NODE_IDS:.*$/im, "")
+      .replace(/ASCENDANCY_NODE_IDS:.*$/im, "")
+      .replace(/COST:\d+/g, "")
+      .replace(/PATH_QUALITY:-?\d+/g, "")
+      .replace(/FILLER_IDS:[^\n]*/g, "")
+      .replace(/NEIGHBORS:[^\n]*/g, "")
+      .replace(/\n\n\n+/g, "\n\n")
+      .trim();
 
     return res.json({
-      response: content,
+      response: cleanedResponse,
       passiveNodeIds,
       ascendancyNodeIds: ascendancyNodeIdsResult,
+      ascendancyChosen,
+      rawResponse: content,
     });
   } catch (error) {
     console.error("❌ Critical Error:", error?.message || error);

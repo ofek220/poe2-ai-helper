@@ -19,7 +19,7 @@ const ASCENDANCY_MAP = {
   Warrior3: "WARRIOR", // Smith of Kitava
   Mercenary1: "MERCENARY", // Tactician
   Mercenary2: "MERCENARY", // Witchhunter
-  Mercenary3: "MERCENARY", // Gambler
+  Mercenary3: "MERCENARY", // Gambling Legionnaire
   Sorceress1: "SORCERESS", // Stormweaver
   Sorceress2: "SORCERESS", // Chronomancer
   Sorceress3: "SORCERESS", // Disciple of Varashta
